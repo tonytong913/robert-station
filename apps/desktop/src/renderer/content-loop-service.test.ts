@@ -24,6 +24,8 @@ const emptyState: PersistedContentLoopState = {
   platformPackages: [],
   archiveRecords: [],
   publishRecords: [],
+  metricSnapshots: [],
+  metricImportPreview: null,
   knowledgeItems: [],
   selectedProjectId: null
 };
@@ -100,6 +102,8 @@ function createRepository(): ContentLoopRepository {
     generatePlatformPackage: vi.fn(async () => emptyState),
     archiveProject: vi.fn(async () => emptyState),
     recordManualPublish: vi.fn(async () => emptyState),
+    previewMetricCsvImport: vi.fn(async () => emptyState),
+    saveMetricImport: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }
