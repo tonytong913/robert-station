@@ -134,6 +134,35 @@ export interface PlatformPackage {
   updatedAt: string;
 }
 
+export interface ArchiveRecord {
+  id: EntityId;
+  workspaceId: EntityId;
+  contentProjectId: EntityId;
+  draftVersionId?: EntityId;
+  platformPackageId?: EntityId;
+  title: string;
+  summary: string;
+  sourceCount: number;
+  packageCount: number;
+  status: "archived";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeItem {
+  id: EntityId;
+  workspaceId: EntityId;
+  archiveRecordId: EntityId;
+  contentProjectId: EntityId;
+  columnSlug: ContentColumnSlug;
+  title: string;
+  lesson: string;
+  evidence: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentLoopSeed {
   topics: Topic[];
   sourceReferences: SourceReference[];
