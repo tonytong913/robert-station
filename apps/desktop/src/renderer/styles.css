@@ -341,6 +341,38 @@ button {
   padding-left: 18px;
 }
 
+.manual-publish-panel {
+  border-top: 1px solid #dbe3ea;
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.manual-publish-panel label {
+  color: #475569;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.manual-publish-panel input {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #172026;
+  font: inherit;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.publish-record-summary {
+  background: #f8fafc;
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
 .archive-status-panel,
 .knowledge-card {
   background: #ffffff;

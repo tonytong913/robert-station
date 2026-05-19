@@ -159,6 +159,52 @@ describe("App content loop", () => {
     expect(screen.getByRole("button", { name: "Generate Xiaohongshu package" })).toBeEnabled();
   });
 
+  it("saves a manual publish record for the Xiaohongshu package", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+    await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+    fireEvent.change(screen.getByLabelText("Publish URL"), {
+      target: { value: "https://www.xiaohongshu.com/explore/demo" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
+
+    expect(await screen.findByText("Published")).toBeInTheDocument();
+    expect(screen.getByText("https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalled();
+  });
+
+  it("shows an inline error and keeps package content when manual publish save fails", async () => {
+    window.robertStation.contentLoop.recordManualPublish = vi.fn(async () => {
+      throw new Error("publish failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+    await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+    fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
+
+    expect(await screen.findByText("Could not save publish record. Try again.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Xiaohongshu Package" })).toBeInTheDocument();
+  });
+
   it("archives the selected project and shows archive status", async () => {
     render(<App />);
 

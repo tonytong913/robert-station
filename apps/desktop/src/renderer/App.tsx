@@ -9,7 +9,8 @@ import {
   generatePersistedPlatformPackage,
   generatePersistedTopics,
   loadPersistedContentLoop,
-  promotePersistedTopic
+  promotePersistedTopic,
+  recordPersistedManualPublish
 } from "./content-loop-loader";
 
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio", "Knowledge"] as const;
@@ -29,6 +30,10 @@ export function App(): ReactElement {
   const [platformPackageError, setPlatformPackageError] = useState<string | null>(null);
   const [isArchivingProject, setIsArchivingProject] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [publishUrl, setPublishUrl] = useState("");
+  const [publishNote, setPublishNote] = useState("");
+  const [isSavingPublishRecord, setIsSavingPublishRecord] = useState(false);
+  const [publishRecordError, setPublishRecordError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -156,6 +161,35 @@ export function App(): ReactElement {
     }
   }
 
+  async function handleRecordManualPublish(platformPackageId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsSavingPublishRecord(true);
+    setPublishRecordError(null);
+
+    try {
+      const nextState = await recordPersistedManualPublish({
+        platformPackageId,
+        publishedAt: new Date().toISOString(),
+        url: publishUrl,
+        note: publishNote
+      });
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setPublishRecordError("Could not save publish record. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSavingPublishRecord(false);
+      }
+    }
+  }
+
   if (!contentLoop) {
     return (
       <main className="loading-shell">
@@ -173,6 +207,9 @@ export function App(): ReactElement {
         (platformPackage) =>
           platformPackage.contentProjectId === selectedProject.id && platformPackage.platform === "xiaohongshu"
       ) ?? null
+    : null;
+  const selectedPublishRecord = selectedXiaohongshuPackage
+    ? contentLoop.publishRecords.find((record) => record.platformPackageId === selectedXiaohongshuPackage.id) ?? null
     : null;
   const selectedArchiveRecord = selectedProject
     ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
@@ -436,6 +473,46 @@ export function App(): ReactElement {
                             </li>
                           ))}
                         </ul>
+                      </section>
+                      <section className="manual-publish-panel" aria-label="Manual publish record">
+                        <h3>Manual publish</h3>
+                        <label>
+                          <span>Publish URL</span>
+                          <input
+                            aria-label="Publish URL"
+                            onChange={(event) => setPublishUrl(event.target.value)}
+                            type="url"
+                            value={publishUrl}
+                          />
+                        </label>
+                        <label>
+                          <span>Publish note</span>
+                          <input
+                            aria-label="Publish note"
+                            onChange={(event) => setPublishNote(event.target.value)}
+                            type="text"
+                            value={publishNote}
+                          />
+                        </label>
+                        <button
+                          disabled={isSavingPublishRecord}
+                          onClick={() => void handleRecordManualPublish(selectedXiaohongshuPackage.id)}
+                          type="button"
+                        >
+                          {isSavingPublishRecord ? "Saving..." : "Save publish record"}
+                        </button>
+                        {publishRecordError ? (
+                          <p className="inline-error" role="alert">
+                            {publishRecordError}
+                          </p>
+                        ) : null}
+                        {selectedPublishRecord ? (
+                          <div className="publish-record-summary">
+                            <strong>Published</strong>
+                            <p>{selectedPublishRecord.publishedAt}</p>
+                            <p>{selectedPublishRecord.url || "No URL recorded"}</p>
+                          </div>
+                        ) : null}
                       </section>
                     </>
                   ) : (
