@@ -45,13 +45,59 @@ CREATE TABLE IF NOT EXISTS columns (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS topics (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  column_slug TEXT NOT NULL,
+  title TEXT NOT NULL,
+  hook TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  target_platforms_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'candidate',
+  score_json TEXT NOT NULL DEFAULT '{}',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS content_projects (
   id TEXT PRIMARY KEY,
   remote_id TEXT,
   workspace_id TEXT NOT NULL REFERENCES workspaces(id),
   primary_column_id TEXT NOT NULL REFERENCES columns(id),
+  source_topic_id TEXT REFERENCES topics(id),
   title TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'topic',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS draft_versions (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  version INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS source_references (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  topic_id TEXT REFERENCES topics(id),
+  content_project_id TEXT REFERENCES content_projects(id),
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT,
+  note TEXT NOT NULL,
   sync_status TEXT NOT NULL DEFAULT 'local',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
