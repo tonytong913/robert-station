@@ -23,3 +23,7 @@ export async function generatePersistedPlatformPackage(
 ): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.generatePlatformPackage(projectId, platform);
 }
+
+export async function archivePersistedProject(projectId: string): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.archiveProject(projectId);
+}

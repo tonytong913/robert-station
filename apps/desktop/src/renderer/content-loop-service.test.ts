@@ -4,6 +4,7 @@ import type { ContentLoopRepository, PersistedContentLoopState } from "@robert-s
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerContentLoopIpc } from "../main/content-loop-service";
 import {
+  CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL
 } from "../main/ipc-channels";
@@ -20,6 +21,8 @@ const emptyState: PersistedContentLoopState = {
   projects: [],
   drafts: [],
   platformPackages: [],
+  archiveRecords: [],
+  knowledgeItems: [],
   selectedProjectId: null
 };
 
@@ -63,6 +66,16 @@ describe("registerContentLoopIpc", () => {
     );
     expect(repository.generatePlatformPackage).not.toHaveBeenCalled();
   });
+
+  it("rejects invalid archive project ids before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getArchiveProjectHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, "")).rejects.toThrow("Invalid content project id.");
+    expect(repository.archiveProject).not.toHaveBeenCalled();
+  });
 });
 
 function createRepository(): ContentLoopRepository {
@@ -71,6 +84,7 @@ function createRepository(): ContentLoopRepository {
     generateTopics: vi.fn(async () => emptyState),
     generateDraftPackage: vi.fn(async () => emptyState),
     generatePlatformPackage: vi.fn(async () => emptyState),
+    archiveProject: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }
@@ -101,4 +115,16 @@ function getGeneratePlatformPackageHandler(): (
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, projectId: unknown, platform: unknown) => Promise<unknown>;
+}
+
+function getArchiveProjectHandler(): (event: IpcMainInvokeEvent, projectId: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Archive project IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, projectId: unknown) => Promise<unknown>;
 }

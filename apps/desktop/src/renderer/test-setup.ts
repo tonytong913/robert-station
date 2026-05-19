@@ -16,6 +16,7 @@ beforeEach(() => {
       generatePlatformPackage: vi.fn(async (projectId: string, platform: Platform) =>
         repository.generatePlatformPackage(projectId, platform)
       ),
+      archiveProject: vi.fn(async (projectId: string) => repository.archiveProject(projectId)),
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };

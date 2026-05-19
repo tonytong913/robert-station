@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  archivePersistedProject,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedTopics,
@@ -42,5 +43,11 @@ describe("content loop loader", () => {
       "project_topic-ai-local-workstation",
       "xiaohongshu"
     );
+  });
+
+  it("archives projects through preload API", async () => {
+    await archivePersistedProject("project_topic-ai-local-workstation");
+
+    expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith("project_topic-ai-local-workstation");
   });
 });

@@ -10,6 +10,7 @@ declare global {
         generateTopics: (columnSlug: ContentColumnSlug) => Promise<PersistedContentLoopState>;
         generateDraftPackage: (projectId: string) => Promise<PersistedContentLoopState>;
         generatePlatformPackage: (projectId: string, platform: Platform) => Promise<PersistedContentLoopState>;
+        archiveProject: (projectId: string) => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
       };
     };
