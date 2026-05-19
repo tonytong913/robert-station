@@ -13,9 +13,9 @@ import type {
 
 interface GenerateMockArchivePackageRequest {
   project: ContentProject;
-  topic?: Topic;
-  draft?: DraftVersion;
-  platformPackage?: PlatformPackage;
+  topic?: Topic | null;
+  draft?: DraftVersion | null;
+  platformPackage?: PlatformPackage | null;
   sourceReferences: SourceReference[];
   now?: Date;
 }
@@ -67,7 +67,7 @@ export function generateMockArchivePackage(request: GenerateMockArchivePackageRe
   return { archiveRecord, knowledgeItem };
 }
 
-function resolveColumnSlug(project: ContentProject, topic?: Topic): ContentColumnSlug {
+function resolveColumnSlug(project: ContentProject, topic?: Topic | null): ContentColumnSlug {
   return topic?.columnSlug ?? (project.primaryColumnId.replace(/^column_/, "") as ContentColumnSlug);
 }
 

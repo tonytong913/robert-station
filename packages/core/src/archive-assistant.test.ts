@@ -116,4 +116,30 @@ describe("generateMockArchivePackage", () => {
     expect(archivePackage.knowledgeItem.evidence).toContain("1 source reference");
     expect(archivePackage.knowledgeItem.evidence).toContain("1 platform package");
   });
+
+  it("archives a project without topic draft or platform package records", () => {
+    const archivePackage = generateMockArchivePackage({
+      project,
+      sourceReferences: [],
+      now: new Date("2026-05-19T14:00:00.000Z")
+    });
+    const nullableArchivePackage = generateMockArchivePackage({
+      project,
+      topic: null,
+      draft: null,
+      platformPackage: null,
+      sourceReferences: [],
+      now: new Date("2026-05-19T14:00:00.000Z")
+    });
+
+    expect(archivePackage.archiveRecord).not.toHaveProperty("draftVersionId");
+    expect(archivePackage.archiveRecord).not.toHaveProperty("platformPackageId");
+    expect(archivePackage.archiveRecord.sourceCount).toBe(0);
+    expect(archivePackage.archiveRecord.packageCount).toBe(0);
+    expect(archivePackage.knowledgeItem.columnSlug).toBe("ai");
+    expect(archivePackage.knowledgeItem.tags).toEqual(["ai", "local", "archive"]);
+    expect(archivePackage.knowledgeItem.evidence).toContain("0 source references");
+    expect(archivePackage.knowledgeItem.evidence).toContain("0 platform packages");
+    expect(nullableArchivePackage.knowledgeItem.tags).toEqual(["ai", "local", "archive"]);
+  });
 });
