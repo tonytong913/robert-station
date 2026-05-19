@@ -22,7 +22,6 @@ interface CreateMetricSnapshotsFromPreviewRequest {
   now?: Date;
 }
 
-const DEFAULT_NOW = new Date("2026-05-19T00:00:00.000Z");
 const CSV_HEADERS = ["url", "publishedAt", "platform", "views", "likes", "favorites", "comments", "shares", "snapshotAt", "note"] as const;
 const METRIC_FIELDS = ["views", "likes", "favorites", "comments", "shares"] as const;
 const SUPPORTED_PLATFORMS = new Set<Platform>(["xiaohongshu", "douyin", "wechat_channels", "bilibili"]);
@@ -32,7 +31,7 @@ type CsvHeader = (typeof CSV_HEADERS)[number];
 type MetricField = (typeof METRIC_FIELDS)[number];
 
 export function createMetricImportPreview(request: CreateMetricImportPreviewRequest): MetricImportPreview {
-  const createdAt = (request.now ?? DEFAULT_NOW).toISOString();
+  const createdAt = (request.now ?? new Date()).toISOString();
   const basePreview = {
     id: createEntityId("metric-import-preview", `${request.input.sourceFileName}-${createdAt}`),
     sourceFileName: request.input.sourceFileName,
@@ -75,7 +74,7 @@ export function createMetricImportPreview(request: CreateMetricImportPreviewRequ
 }
 
 export function createMetricSnapshotsFromPreview(request: CreateMetricSnapshotsFromPreviewRequest): MetricSnapshot[] {
-  const timestamp = (request.now ?? DEFAULT_NOW).toISOString();
+  const timestamp = (request.now ?? new Date()).toISOString();
   const recordsById = new Map<EntityId, PublishRecord>(request.publishRecords.map((record) => [record.id, record]));
 
   return request.preview.rows.flatMap((row) => {

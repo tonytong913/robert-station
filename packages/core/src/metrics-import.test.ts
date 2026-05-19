@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMetricImportPreview, createMetricSnapshotsFromPreview } from "./metrics-import";
 import type { MetricCsvImportInput, PublishRecord } from "./types";
 
@@ -24,6 +24,10 @@ const input: MetricCsvImportInput = {
 };
 
 describe("createMetricImportPreview", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("parses valid metric CSV rows and matches publish records by URL", () => {
     const preview = createMetricImportPreview({
       input,
@@ -76,6 +80,24 @@ describe("createMetricImportPreview", () => {
         shares: 0
       }
     });
+  });
+
+  it("uses the current time when now and snapshotAt are omitted", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-21T10:11:12.000Z"));
+
+    const preview = createMetricImportPreview({
+      input: {
+        sourceFileName: "current-time.csv",
+        csvText:
+          "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+          ",2026-05-19T12:00:00.000Z,xiaohongshu,,,,,,,"
+      },
+      publishRecords: [publishRecord]
+    });
+
+    expect(preview.createdAt).toBe("2026-05-21T10:11:12.000Z");
+    expect(preview.rows[0]?.snapshotAt).toBe("2026-05-21T10:11:12.000Z");
   });
 
   it("marks rows with invalid metrics as invalid", () => {
@@ -139,6 +161,27 @@ describe("createMetricImportPreview", () => {
       note: "first import",
       createdAt: "2026-05-20T09:30:00.000Z",
       updatedAt: "2026-05-20T09:30:00.000Z"
+    });
+  });
+
+  it("uses the current time when creating snapshots without now", () => {
+    const preview = createMetricImportPreview({
+      input,
+      publishRecords: [publishRecord],
+      now: new Date("2026-05-20T09:00:00.000Z")
+    });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-21T10:11:12.000Z"));
+
+    const snapshots = createMetricSnapshotsFromPreview({
+      preview,
+      publishRecords: [publishRecord]
+    });
+
+    expect(snapshots[0]).toMatchObject({
+      createdAt: "2026-05-21T10:11:12.000Z",
+      updatedAt: "2026-05-21T10:11:12.000Z"
     });
   });
 });
