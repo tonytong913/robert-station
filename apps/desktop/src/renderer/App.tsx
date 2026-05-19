@@ -85,16 +85,11 @@ export function App(): ReactElement {
       ? contentLoop.metricSnapshots.filter((snapshot) => snapshot.publishRecordId === selectedPublishRecord.id)
       : [];
   const selectedLatestMetricSnapshot = selectedMetricSnapshots[0] ?? null;
-  const selectedMetricImportRows =
-    selectedPublishRecord && contentLoop
-      ? contentLoop.metricImportPreview?.rows.filter(
-          (row) => row.status === "matched" && row.publishRecordId === selectedPublishRecord.id
-        ) ?? []
-      : [];
+  const matchedMetricImportPreviewRows =
+    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "matched") ?? [];
   const invalidMetricImportPreviewRows =
     contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "invalid") ?? [];
-  const matchedMetricImportRows =
-    selectedMetricImportRows.length;
+  const matchedMetricImportRows = matchedMetricImportPreviewRows.length;
   const invalidMetricImportRows = invalidMetricImportPreviewRows.length;
   const selectedArchiveRecord =
     selectedProject && contentLoop
@@ -665,12 +660,17 @@ export function App(): ReactElement {
                             {contentLoop.metricImportPreview ? (
                               <div className="metric-import-preview">
                                 <p>
-                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"} for
-                                  this publish record
+                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"} in
+                                  this import
                                 </p>
                                 <p>
                                   {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
                                 </p>
+                                {matchedMetricImportPreviewRows.map((row) => (
+                                  <p key={row.rowNumber}>
+                                    Row {row.rowNumber}: {row.url || row.publishRecordId}
+                                  </p>
+                                ))}
                                 {invalidMetricImportPreviewRows.map((row) => (
                                   <p key={row.rowNumber}>
                                     Row {row.rowNumber}: {row.error}

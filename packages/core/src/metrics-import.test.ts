@@ -158,6 +158,22 @@ describe("createMetricImportPreview", () => {
     expect(preview.rows[0]?.error).toBe("views must be a non-negative integer.");
   });
 
+  it("marks non-empty unsupported platform values as invalid before matching", () => {
+    const preview = createMetricImportPreview({
+      input: {
+        sourceFileName: "unsupported-platform.csv",
+        csvText:
+          "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+          "https://www.xiaohongshu.com/explore/demo,,bad,1,1,1,1,1,,bad platform"
+      },
+      publishRecords: [publishRecord],
+      now: new Date("2026-05-20T09:00:00.000Z")
+    });
+
+    expect(preview.rows[0]?.status).toBe("invalid");
+    expect(preview.rows[0]?.error).toBe("Unsupported platform: bad.");
+  });
+
   it("marks unmatched rows as invalid", () => {
     const preview = createMetricImportPreview({
       input: {

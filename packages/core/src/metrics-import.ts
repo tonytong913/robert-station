@@ -124,19 +124,27 @@ function createPreviewRow(request: {
 }): MetricImportPreviewRow {
   const url = getCell(request.cells, request.headerIndexes, "url");
   const publishedAt = getCell(request.cells, request.headerIndexes, "publishedAt");
-  const platform = normalizePlatform(getCell(request.cells, request.headerIndexes, "platform"));
+  const platformResult = parsePlatform(getCell(request.cells, request.headerIndexes, "platform"));
   const snapshotAt = getCell(request.cells, request.headerIndexes, "snapshotAt") || request.importTimestamp;
   const note = getCell(request.cells, request.headerIndexes, "note");
   const metricsResult = parseMetrics(request.cells, request.headerIndexes);
   const baseRow = {
     rowNumber: request.rowNumber,
     url,
-    platform,
+    platform: platformResult.platform,
     publishedAt,
     snapshotAt,
     metrics: metricsResult.metrics,
     note
   };
+
+  if (platformResult.error) {
+    return {
+      ...baseRow,
+      status: "invalid",
+      error: platformResult.error
+    };
+  }
 
   if (metricsResult.error) {
     return {
@@ -146,7 +154,12 @@ function createPreviewRow(request: {
     };
   }
 
-  const publishRecord = findMatchingPublishRecord({ publishRecords: request.publishRecords, url, platform, publishedAt });
+  const publishRecord = findMatchingPublishRecord({
+    publishRecords: request.publishRecords,
+    url,
+    platform: platformResult.platform,
+    publishedAt
+  });
   if (!publishRecord) {
     return {
       ...baseRow,
@@ -209,12 +222,19 @@ function parseMetrics(cells: string[], headerIndexes: Map<CsvHeader, number>): {
   return { metrics };
 }
 
-function normalizePlatform(value: string): Platform {
-  if (SUPPORTED_PLATFORMS.has(value as Platform)) {
-    return value as Platform;
+function parsePlatform(value: string): { platform: Platform; error?: string } {
+  if (value === "") {
+    return { platform: "xiaohongshu" };
   }
 
-  return "xiaohongshu";
+  if (!SUPPORTED_PLATFORMS.has(value as Platform)) {
+    return {
+      platform: "xiaohongshu",
+      error: `Unsupported platform: ${value}.`
+    };
+  }
+
+  return { platform: value as Platform };
 }
 
 function findMatchingPublishRecord(request: {

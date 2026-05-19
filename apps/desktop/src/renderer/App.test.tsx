@@ -262,7 +262,8 @@ describe("App content loop", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
 
-    expect(await screen.findByText("1 matched row for this publish record")).toBeInTheDocument();
+    expect(await screen.findByText("1 matched row in this import")).toBeInTheDocument();
+    expect(screen.getByText("Row 2: https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
 
     expect(await screen.findByText("Views")).toBeInTheDocument();
@@ -290,25 +291,67 @@ describe("App content loop", () => {
 
     await publishXiaohongshuPackage();
     fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
-    await screen.findByText("1 matched row for this publish record");
+    await screen.findByText("1 matched row in this import");
     fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
 
     expect(await screen.findByText("Could not save imported metrics. Try again.")).toBeInTheDocument();
-    expect(screen.getByText("1 matched row for this publish record")).toBeInTheDocument();
+    expect(screen.getByText("1 matched row in this import")).toBeInTheDocument();
   });
 
-  it("does not show matched metric preview rows from another publish record", async () => {
+  it("shows every matched metric preview row that will be saved", async () => {
     await publishXiaohongshuPackage();
-    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
-    await screen.findByText("1 matched row for this publish record");
-
     await promoteAndPublishXiaohongshuPackage(
       "A simple family finance dashboard for monthly decisions",
       "https://www.xiaohongshu.com/explore/finance"
     );
 
-    expect(screen.queryByText("1 matched row for this publish record")).not.toBeInTheDocument();
-    expect(screen.getByText("0 matched rows for this publish record")).toBeInTheDocument();
+    const currentState = await window.robertStation.contentLoop.load();
+    const demoPublishRecord = currentState.publishRecords.find(
+      (record) => record.url === "https://www.xiaohongshu.com/explore/demo"
+    );
+    const financePublishRecord = currentState.publishRecords.find(
+      (record) => record.url === "https://www.xiaohongshu.com/explore/finance"
+    );
+    window.robertStation.contentLoop.importMetricCsv = vi.fn(async () => ({
+      ...currentState,
+      metricImportPreview: {
+        id: "metric-import-preview_two-records",
+        sourceFileName: "metrics.csv",
+        createdAt: "2026-05-20T09:00:00.000Z",
+        rows: [
+          {
+            rowNumber: 2,
+            status: "matched" as const,
+            publishRecordId: demoPublishRecord?.id ?? "",
+            url: "https://www.xiaohongshu.com/explore/demo",
+            platform: "xiaohongshu" as const,
+            publishedAt: "",
+            snapshotAt: "2026-05-20T08:00:00.000Z",
+            metrics: { views: 100, likes: 10, favorites: 8, comments: 3, shares: 2 },
+            note: "demo"
+          },
+          {
+            rowNumber: 3,
+            status: "matched" as const,
+            publishRecordId: financePublishRecord?.id ?? "",
+            url: "https://www.xiaohongshu.com/explore/finance",
+            platform: "xiaohongshu" as const,
+            publishedAt: "",
+            snapshotAt: "2026-05-20T08:05:00.000Z",
+            metrics: { views: 200, likes: 20, favorites: 16, comments: 6, shares: 4 },
+            note: "finance"
+          }
+        ]
+      }
+    }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
+
+    expect(await screen.findByText("2 matched rows in this import")).toBeInTheDocument();
+    expect(screen.getByText("Row 2: https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
+    expect(screen.getByText("Row 3: https://www.xiaohongshu.com/explore/finance")).toBeInTheDocument();
+    expect(screen.queryByText(/for this publish record/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save imported metrics" })).toBeEnabled();
   });
 
   it("archives the selected project and shows archive status", async () => {
