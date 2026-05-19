@@ -6,7 +6,8 @@ import { registerContentLoopIpc } from "../main/content-loop-service";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
-  CONTENT_LOOP_GENERATE_TOPICS_CHANNEL
+  CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
 } from "../main/ipc-channels";
 
 vi.mock("electron", () => ({
@@ -22,6 +23,7 @@ const emptyState: PersistedContentLoopState = {
   drafts: [],
   platformPackages: [],
   archiveRecords: [],
+  publishRecords: [],
   knowledgeItems: [],
   selectedProjectId: null
 };
@@ -76,6 +78,18 @@ describe("registerContentLoopIpc", () => {
     await expect(handler({} as IpcMainInvokeEvent, "")).rejects.toThrow("Invalid content project id.");
     expect(repository.archiveProject).not.toHaveBeenCalled();
   });
+
+  it("rejects invalid manual publish inputs before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getRecordManualPublishHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, { platformPackageId: "", publishedAt: "" })).rejects.toThrow(
+      "Invalid manual publish input."
+    );
+    expect(repository.recordManualPublish).not.toHaveBeenCalled();
+  });
 });
 
 function createRepository(): ContentLoopRepository {
@@ -85,6 +99,7 @@ function createRepository(): ContentLoopRepository {
     generateDraftPackage: vi.fn(async () => emptyState),
     generatePlatformPackage: vi.fn(async () => emptyState),
     archiveProject: vi.fn(async () => emptyState),
+    recordManualPublish: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }
@@ -127,4 +142,16 @@ function getArchiveProjectHandler(): (event: IpcMainInvokeEvent, projectId: unkn
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, projectId: unknown) => Promise<unknown>;
+}
+
+function getRecordManualPublishHandler(): (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Record manual publish IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>;
 }

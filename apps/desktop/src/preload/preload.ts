@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ContentColumnSlug, Platform } from "@robert-station/core";
+import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
@@ -7,7 +7,8 @@ import {
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
-  CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL
+  CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL,
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
 } from "../main/ipc-channels";
 
 contextBridge.exposeInMainWorld("robertStation", {
@@ -22,6 +23,8 @@ contextBridge.exposeInMainWorld("robertStation", {
       ipcRenderer.invoke(CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL, projectId, platform) as Promise<PersistedContentLoopState>,
     archiveProject: (projectId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL, projectId) as Promise<PersistedContentLoopState>,
+    recordManualPublish: (input: ManualPublishInput) =>
+      ipcRenderer.invoke(CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL, input) as Promise<PersistedContentLoopState>,
     promoteTopic: (topicId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, topicId) as Promise<PersistedContentLoopState>
   }

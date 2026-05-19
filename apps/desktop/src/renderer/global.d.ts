@@ -1,4 +1,4 @@
-import type { ContentColumnSlug, Platform } from "@robert-station/core";
+import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 
 declare global {
@@ -11,6 +11,7 @@ declare global {
         generateDraftPackage: (projectId: string) => Promise<PersistedContentLoopState>;
         generatePlatformPackage: (projectId: string, platform: Platform) => Promise<PersistedContentLoopState>;
         archiveProject: (projectId: string) => Promise<PersistedContentLoopState>;
+        recordManualPublish: (input: ManualPublishInput) => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
       };
     };

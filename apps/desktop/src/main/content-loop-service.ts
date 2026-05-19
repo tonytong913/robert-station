@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { DEFAULT_COLUMNS, type ContentColumnSlug, type Platform } from "@robert-station/core";
+import { DEFAULT_COLUMNS, type ContentColumnSlug, type ManualPublishInput, type Platform } from "@robert-station/core";
 import type { ContentLoopRepository } from "@robert-station/local-store";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
@@ -7,7 +7,8 @@ import {
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
-  CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL
+  CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL,
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
 } from "./ipc-channels";
 
 const CONTENT_COLUMN_SLUGS = new Set<string>(DEFAULT_COLUMNS.map((column) => column.slug));
@@ -46,6 +47,13 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
 
     return repository.archiveProject(projectId);
   });
+  ipcMain.handle(CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL, async (_event, input: unknown) => {
+    if (!isManualPublishInput(input)) {
+      throw new Error("Invalid manual publish input.");
+    }
+
+    return repository.recordManualPublish(input);
+  });
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)
   );
@@ -57,4 +65,20 @@ function isContentColumnSlug(value: unknown): value is ContentColumnSlug {
 
 function isSupportedPublishPlatform(value: unknown): value is Platform {
   return value === "xiaohongshu";
+}
+
+function isManualPublishInput(value: unknown): value is ManualPublishInput {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const input = value as Partial<ManualPublishInput>;
+  return (
+    typeof input.platformPackageId === "string" &&
+    input.platformPackageId.length > 0 &&
+    typeof input.publishedAt === "string" &&
+    input.publishedAt.length > 0 &&
+    (input.url === undefined || typeof input.url === "string") &&
+    (input.note === undefined || typeof input.note === "string")
+  );
 }

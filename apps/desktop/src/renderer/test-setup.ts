@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import type { ContentColumnSlug, Platform } from "@robert-station/core";
+import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
 import { InMemoryContentLoopRepository } from "@robert-station/local-store";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
@@ -17,6 +17,7 @@ beforeEach(() => {
         repository.generatePlatformPackage(projectId, platform)
       ),
       archiveProject: vi.fn(async (projectId: string) => repository.archiveProject(projectId)),
+      recordManualPublish: vi.fn(async (input: ManualPublishInput) => repository.recordManualPublish(input)),
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };

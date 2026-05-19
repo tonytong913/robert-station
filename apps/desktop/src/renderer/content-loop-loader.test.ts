@@ -5,7 +5,8 @@ import {
   generatePersistedPlatformPackage,
   generatePersistedTopics,
   loadPersistedContentLoop,
-  promotePersistedTopic
+  promotePersistedTopic,
+  recordPersistedManualPublish
 } from "./content-loop-loader";
 
 describe("content loop loader", () => {
@@ -49,5 +50,18 @@ describe("content loop loader", () => {
     await archivePersistedProject("project_topic-ai-local-workstation");
 
     expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith("project_topic-ai-local-workstation");
+  });
+
+  it("records manual publishes through preload API", async () => {
+    const input = {
+      platformPackageId:
+        "platform-package_project-topic-ai-local-workstation-draft-project-topic-ai-local-workstation-2-xiaohongshu",
+      publishedAt: "2026-05-19T15:00:00.000Z",
+      url: "https://www.xiaohongshu.com/explore/demo"
+    };
+
+    await recordPersistedManualPublish(input);
+
+    expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith(input);
   });
 });

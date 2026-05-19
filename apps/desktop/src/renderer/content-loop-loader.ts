@@ -1,4 +1,4 @@
-import type { ContentColumnSlug, Platform } from "@robert-station/core";
+import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 
 export async function loadPersistedContentLoop(): Promise<PersistedContentLoopState> {
@@ -26,4 +26,8 @@ export async function generatePersistedPlatformPackage(
 
 export async function archivePersistedProject(projectId: string): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.archiveProject(projectId);
+}
+
+export async function recordPersistedManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.recordManualPublish(input);
 }
