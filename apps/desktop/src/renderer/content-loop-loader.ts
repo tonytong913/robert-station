@@ -1,4 +1,4 @@
-import type { ContentColumnSlug } from "@robert-station/core";
+import type { ContentColumnSlug, Platform } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 
 export async function loadPersistedContentLoop(): Promise<PersistedContentLoopState> {
@@ -15,4 +15,11 @@ export async function generatePersistedTopics(columnSlug: ContentColumnSlug): Pr
 
 export async function generatePersistedDraftPackage(projectId: string): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.generateDraftPackage(projectId);
+}
+
+export async function generatePersistedPlatformPackage(
+  projectId: string,
+  platform: Platform
+): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.generatePlatformPackage(projectId, platform);
 }

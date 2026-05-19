@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   generatePersistedDraftPackage,
+  generatePersistedPlatformPackage,
   generatePersistedTopics,
   loadPersistedContentLoop,
   promotePersistedTopic
@@ -31,6 +32,15 @@ describe("content loop loader", () => {
 
     expect(window.robertStation.contentLoop.generateDraftPackage).toHaveBeenCalledWith(
       "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("generates platform packages through preload API", async () => {
+    await generatePersistedPlatformPackage("project_topic-ai-local-workstation", "xiaohongshu");
+
+    expect(window.robertStation.contentLoop.generatePlatformPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation",
+      "xiaohongshu"
     );
   });
 });
