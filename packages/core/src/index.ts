@@ -3,6 +3,7 @@ export * from "./content-loop";
 export * from "./creation-assistant";
 export * from "./archive-assistant";
 export * from "./ids";
+export * from "./manual-publish";
 export * from "./publish-assistant";
 export * from "./topic-assistant";
 export * from "./types";

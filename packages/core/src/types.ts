@@ -134,6 +134,27 @@ export interface PlatformPackage {
   updatedAt: string;
 }
 
+export interface PublishRecord {
+  id: EntityId;
+  workspaceId: EntityId;
+  contentProjectId: EntityId;
+  platformPackageId: EntityId;
+  platform: Platform;
+  status: "published";
+  publishedAt: string;
+  url: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManualPublishInput {
+  platformPackageId: EntityId;
+  publishedAt: string;
+  url?: string;
+  note?: string;
+}
+
 export interface ArchiveRecord {
   id: EntityId;
   workspaceId: EntityId;
