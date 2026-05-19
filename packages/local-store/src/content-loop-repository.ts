@@ -188,17 +188,26 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       status: "archived",
       updatedAt: archivePackage.archiveRecord.updatedAt
     };
+    const archiveRecord = {
+      ...archivePackage.archiveRecord,
+      createdAt:
+        this.state.archiveRecords.find((candidate) => candidate.id === archivePackage.archiveRecord.id)?.createdAt ??
+        archivePackage.archiveRecord.createdAt
+    };
+    const knowledgeItem = {
+      ...archivePackage.knowledgeItem,
+      createdAt:
+        this.state.knowledgeItems.find((candidate) => candidate.id === archivePackage.knowledgeItem.id)?.createdAt ??
+        archivePackage.knowledgeItem.createdAt
+    };
 
     this.state = {
       ...this.state,
       projects: this.state.projects.map((candidate) => (candidate.id === project.id ? archivedProject : candidate)),
-      archiveRecords: [
-        archivePackage.archiveRecord,
-        ...this.state.archiveRecords.filter((candidate) => candidate.id !== archivePackage.archiveRecord.id)
-      ],
+      archiveRecords: [archiveRecord, ...this.state.archiveRecords.filter((candidate) => candidate.id !== archiveRecord.id)],
       knowledgeItems: [
-        archivePackage.knowledgeItem,
-        ...this.state.knowledgeItems.filter((candidate) => candidate.id !== archivePackage.knowledgeItem.id)
+        knowledgeItem,
+        ...this.state.knowledgeItems.filter((candidate) => candidate.id !== knowledgeItem.id)
       ],
       selectedProjectId: project.id
     };

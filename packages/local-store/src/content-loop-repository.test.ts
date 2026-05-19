@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { InMemoryContentLoopRepository } from "./content-loop-repository";
 
 describe("InMemoryContentLoopRepository", () => {
@@ -140,12 +140,23 @@ describe("InMemoryContentLoopRepository", () => {
 
     await repository.generateDraftPackage(projectId);
     await repository.generatePlatformPackage(projectId, "xiaohongshu");
-    const afterFirstArchive = await repository.archiveProject(projectId);
-    const afterSecondArchive = await repository.archiveProject(projectId);
 
-    expect(afterSecondArchive.archiveRecords).toHaveLength(1);
-    expect(afterSecondArchive.knowledgeItems).toHaveLength(1);
-    expect(afterSecondArchive.archiveRecords[0]?.id).toBe(afterFirstArchive.archiveRecords[0]?.id);
-    expect(afterSecondArchive.knowledgeItems[0]?.id).toBe(afterFirstArchive.knowledgeItems[0]?.id);
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-05-19T01:00:00.000Z"));
+      const afterFirstArchive = await repository.archiveProject(projectId);
+
+      vi.setSystemTime(new Date("2026-05-19T02:00:00.000Z"));
+      const afterSecondArchive = await repository.archiveProject(projectId);
+
+      expect(afterSecondArchive.archiveRecords).toHaveLength(1);
+      expect(afterSecondArchive.knowledgeItems).toHaveLength(1);
+      expect(afterSecondArchive.archiveRecords[0]?.id).toBe(afterFirstArchive.archiveRecords[0]?.id);
+      expect(afterSecondArchive.knowledgeItems[0]?.id).toBe(afterFirstArchive.knowledgeItems[0]?.id);
+      expect(afterSecondArchive.archiveRecords[0]?.createdAt).toBe(afterFirstArchive.archiveRecords[0]?.createdAt);
+      expect(afterSecondArchive.knowledgeItems[0]?.createdAt).toBe(afterFirstArchive.knowledgeItems[0]?.createdAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
