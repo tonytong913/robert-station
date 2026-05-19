@@ -18,6 +18,15 @@ beforeEach(() => {
       ),
       archiveProject: vi.fn(async (projectId: string) => repository.archiveProject(projectId)),
       recordManualPublish: vi.fn(async (input: ManualPublishInput) => repository.recordManualPublish(input)),
+      importMetricCsv: vi.fn(async () =>
+        repository.previewMetricCsvImport({
+          sourceFileName: "metrics.csv",
+          csvText:
+            "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+            "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,100,10,8,3,2,2026-05-20T08:00:00.000Z,good"
+        })
+      ),
+      saveMetricImport: vi.fn(async () => repository.saveMetricImport()),
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };

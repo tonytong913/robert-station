@@ -1,4 +1,6 @@
-import { ipcMain } from "electron";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { dialog, ipcMain } from "electron";
 import { DEFAULT_COLUMNS, type ContentColumnSlug, type ManualPublishInput, type Platform } from "@robert-station/core";
 import type { ContentLoopRepository } from "@robert-station/local-store";
 import {
@@ -6,9 +8,11 @@ import {
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
+  CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
   CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL,
-  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL,
+  CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL
 } from "./ipc-channels";
 
 const CONTENT_COLUMN_SLUGS = new Set<string>(DEFAULT_COLUMNS.map((column) => column.slug));
@@ -54,6 +58,33 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
 
     return repository.recordManualPublish(input);
   });
+  ipcMain.handle(CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL, async () => {
+    const result = await dialog.showOpenDialog({
+      filters: [{ name: "CSV files", extensions: ["csv"] }],
+      properties: ["openFile"]
+    });
+
+    const [filePath] = result.filePaths;
+
+    if (result.canceled || !filePath) {
+      return repository.loadContentLoop();
+    }
+
+    if (!filePath.toLowerCase().endsWith(".csv")) {
+      throw new Error("Could not import metrics CSV.");
+    }
+
+    try {
+      const csvText = await readFile(filePath, "utf8");
+      return repository.previewMetricCsvImport({
+        sourceFileName: path.basename(filePath),
+        csvText
+      });
+    } catch {
+      throw new Error("Could not import metrics CSV.");
+    }
+  });
+  ipcMain.handle(CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL, async () => repository.saveMetricImport());
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)
   );

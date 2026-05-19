@@ -31,3 +31,11 @@ export async function archivePersistedProject(projectId: string): Promise<Persis
 export async function recordPersistedManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.recordManualPublish(input);
 }
+
+export async function importPersistedMetricCsv(): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.importMetricCsv();
+}
+
+export async function savePersistedMetricImport(): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.saveMetricImport();
+}

@@ -5,3 +5,5 @@ export const CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL = "content-loop:generat
 export const CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL = "content-loop:generate-platform-package";
 export const CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL = "content-loop:archive-project";
 export const CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL = "content-loop:record-manual-publish";
+export const CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL = "content-loop:import-metric-csv";
+export const CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL = "content-loop:save-metric-import";

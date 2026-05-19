@@ -1,5 +1,6 @@
+import { readFile } from "node:fs/promises";
 import type { IpcMainInvokeEvent } from "electron";
-import { ipcMain } from "electron";
+import { dialog, ipcMain } from "electron";
 import type { ContentLoopRepository, PersistedContentLoopState } from "@robert-station/local-store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerContentLoopIpc } from "../main/content-loop-service";
@@ -7,13 +8,29 @@ import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
-  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
+  CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL,
+  CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL
 } from "../main/ipc-channels";
 
+const fsPromisesMocks = vi.hoisted(() => ({
+  readFile: vi.fn()
+}));
+
 vi.mock("electron", () => ({
+  dialog: {
+    showOpenDialog: vi.fn()
+  },
   ipcMain: {
     handle: vi.fn()
   }
+}));
+
+vi.mock("node:fs/promises", () => ({
+  default: {
+    readFile: fsPromisesMocks.readFile
+  },
+  readFile: fsPromisesMocks.readFile
 }));
 
 const emptyState: PersistedContentLoopState = {
@@ -33,6 +50,8 @@ const emptyState: PersistedContentLoopState = {
 describe("registerContentLoopIpc", () => {
   beforeEach(() => {
     vi.mocked(ipcMain.handle).mockClear();
+    vi.mocked(dialog.showOpenDialog).mockReset();
+    vi.mocked(readFile).mockReset();
   });
 
   it("rejects invalid topic generation column slugs before calling the repository", async () => {
@@ -91,6 +110,61 @@ describe("registerContentLoopIpc", () => {
       "Invalid manual publish input."
     );
     expect(repository.recordManualPublish).not.toHaveBeenCalled();
+  });
+
+  it("imports a selected metrics CSV file before calling the repository", async () => {
+    const repository = createRepository();
+    const csvText = "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n";
+    registerContentLoopIpc(repository);
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+      canceled: false,
+      filePaths: ["/tmp/metrics.csv"]
+    });
+    vi.mocked(readFile).mockResolvedValue(csvText);
+
+    const handler = getImportMetricCsvHandler();
+    await handler({} as IpcMainInvokeEvent);
+
+    expect(repository.previewMetricCsvImport).toHaveBeenCalledWith({
+      sourceFileName: "metrics.csv",
+      csvText
+    });
+  });
+
+  it("returns current state when metrics CSV file selection is canceled", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] });
+
+    const handler = getImportMetricCsvHandler();
+    const state = await handler({} as IpcMainInvokeEvent);
+
+    expect(state).toEqual(emptyState);
+    expect(repository.previewMetricCsvImport).not.toHaveBeenCalled();
+  });
+
+  it("saves the metric import through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getSaveMetricImportHandler();
+    await handler({} as IpcMainInvokeEvent);
+
+    expect(repository.saveMetricImport).toHaveBeenCalledOnce();
+  });
+
+  it("rejects unsupported metric CSV file extensions before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+    vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+      canceled: false,
+      filePaths: ["/tmp/metrics.txt"]
+    });
+
+    const handler = getImportMetricCsvHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent)).rejects.toThrow("Could not import metrics CSV.");
+    expect(repository.previewMetricCsvImport).not.toHaveBeenCalled();
   });
 });
 
@@ -158,4 +232,28 @@ function getRecordManualPublishHandler(): (event: IpcMainInvokeEvent, input: unk
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>;
+}
+
+function getImportMetricCsvHandler(): (event: IpcMainInvokeEvent) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Import metric CSV IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent) => Promise<unknown>;
+}
+
+function getSaveMetricImportHandler(): (event: IpcMainInvokeEvent) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Save metric import IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent) => Promise<unknown>;
 }

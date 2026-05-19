@@ -4,9 +4,11 @@ import {
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedTopics,
+  importPersistedMetricCsv,
   loadPersistedContentLoop,
   promotePersistedTopic,
-  recordPersistedManualPublish
+  recordPersistedManualPublish,
+  savePersistedMetricImport
 } from "./content-loop-loader";
 
 describe("content loop loader", () => {
@@ -63,5 +65,17 @@ describe("content loop loader", () => {
     await recordPersistedManualPublish(input);
 
     expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith(input);
+  });
+
+  it("imports metric CSV through preload API", async () => {
+    await importPersistedMetricCsv();
+
+    expect(window.robertStation.contentLoop.importMetricCsv).toHaveBeenCalledOnce();
+  });
+
+  it("saves metric import through preload API", async () => {
+    await savePersistedMetricImport();
+
+    expect(window.robertStation.contentLoop.saveMetricImport).toHaveBeenCalledOnce();
   });
 });

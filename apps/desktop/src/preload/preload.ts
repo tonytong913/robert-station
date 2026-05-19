@@ -6,9 +6,11 @@ import {
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
+  CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
   CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL,
-  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL
+  CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL,
+  CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL
 } from "../main/ipc-channels";
 
 contextBridge.exposeInMainWorld("robertStation", {
@@ -25,6 +27,10 @@ contextBridge.exposeInMainWorld("robertStation", {
       ipcRenderer.invoke(CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL, projectId) as Promise<PersistedContentLoopState>,
     recordManualPublish: (input: ManualPublishInput) =>
       ipcRenderer.invoke(CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL, input) as Promise<PersistedContentLoopState>,
+    importMetricCsv: () =>
+      ipcRenderer.invoke(CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL) as Promise<PersistedContentLoopState>,
+    saveMetricImport: () =>
+      ipcRenderer.invoke(CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL) as Promise<PersistedContentLoopState>,
     promoteTopic: (topicId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, topicId) as Promise<PersistedContentLoopState>
   }

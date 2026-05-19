@@ -12,6 +12,8 @@ declare global {
         generatePlatformPackage: (projectId: string, platform: Platform) => Promise<PersistedContentLoopState>;
         archiveProject: (projectId: string) => Promise<PersistedContentLoopState>;
         recordManualPublish: (input: ManualPublishInput) => Promise<PersistedContentLoopState>;
+        importMetricCsv: () => Promise<PersistedContentLoopState>;
+        saveMetricImport: () => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
       };
     };
