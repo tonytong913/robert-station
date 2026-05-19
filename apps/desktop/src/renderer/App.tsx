@@ -4,6 +4,7 @@ import type { PersistedContentLoopState } from "@robert-station/local-store";
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  archivePersistedProject,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedTopics,
@@ -11,7 +12,7 @@ import {
   promotePersistedTopic
 } from "./content-loop-loader";
 
-const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"] as const;
+const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio", "Knowledge"] as const;
 
 type Screen = (typeof workflowStages)[number];
 
@@ -26,6 +27,8 @@ export function App(): ReactElement {
   const [draftPackageError, setDraftPackageError] = useState<string | null>(null);
   const [isGeneratingPlatformPackage, setIsGeneratingPlatformPackage] = useState(false);
   const [platformPackageError, setPlatformPackageError] = useState<string | null>(null);
+  const [isArchivingProject, setIsArchivingProject] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -129,6 +132,30 @@ export function App(): ReactElement {
     }
   }
 
+  async function handleArchiveProject(projectId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsArchivingProject(true);
+    setArchiveError(null);
+
+    try {
+      const nextState = await archivePersistedProject(projectId);
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setArchiveError("Could not archive project. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsArchivingProject(false);
+      }
+    }
+  }
+
   if (!contentLoop) {
     return (
       <main className="loading-shell">
@@ -146,6 +173,9 @@ export function App(): ReactElement {
         (platformPackage) =>
           platformPackage.contentProjectId === selectedProject.id && platformPackage.platform === "xiaohongshu"
       ) ?? null
+    : null;
+  const selectedArchiveRecord = selectedProject
+    ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
     : null;
   const candidateTopicCount = contentLoop.topics.filter((topic) => topic.status === "candidate").length;
   const activeProjectCount = contentLoop.projects.length;
@@ -310,6 +340,13 @@ export function App(): ReactElement {
                   >
                     {isGeneratingPlatformPackage ? "Generating..." : "Generate Xiaohongshu package"}
                   </button>
+                  <button
+                    disabled={isArchivingProject}
+                    onClick={() => void handleArchiveProject(selectedProject.id)}
+                    type="button"
+                  >
+                    {isArchivingProject ? "Archiving..." : "Archive project"}
+                  </button>
                   {draftPackageError ? (
                     <p className="inline-error" role="alert">
                       {draftPackageError}
@@ -318,6 +355,11 @@ export function App(): ReactElement {
                   {platformPackageError ? (
                     <p className="inline-error" role="alert">
                       {platformPackageError}
+                    </p>
+                  ) : null}
+                  {archiveError ? (
+                    <p className="inline-error" role="alert">
+                      {archiveError}
                     </p>
                   ) : null}
                 </div>
@@ -400,9 +442,38 @@ export function App(): ReactElement {
                     <p className="empty-state">No Xiaohongshu package yet.</p>
                   )}
                 </section>
+                <section className="archive-status-panel">
+                  <h2>Archive</h2>
+                  {selectedArchiveRecord ? (
+                    <>
+                      <strong>Archived</strong>
+                      <p>{selectedArchiveRecord.summary}</p>
+                    </>
+                  ) : (
+                    <p>Not archived yet.</p>
+                  )}
+                </section>
               </>
             ) : (
               <p className="empty-state">Select or promote a topic to open the first draft.</p>
+            )}
+          </section>
+        ) : null}
+
+        {screen === "Knowledge" ? (
+          <section className="knowledge-list" aria-label="Archived knowledge">
+            {contentLoop.knowledgeItems.length === 0 ? (
+              <p className="empty-state">No archived knowledge yet.</p>
+            ) : (
+              contentLoop.knowledgeItems.map((knowledgeItem) => (
+                <article className="knowledge-card" key={knowledgeItem.id}>
+                  <p className="eyebrow">{knowledgeItem.columnSlug}</p>
+                  <h2>{knowledgeItem.title}</h2>
+                  <p>{knowledgeItem.tags.join(" ")}</p>
+                  <p>{knowledgeItem.lesson}</p>
+                  <p>{knowledgeItem.evidence}</p>
+                </article>
+              ))
             )}
           </section>
         ) : null}

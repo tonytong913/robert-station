@@ -341,6 +341,41 @@ button {
   padding-left: 18px;
 }
 
+.archive-status-panel,
+.knowledge-card {
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.archive-status-panel {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.archive-status-panel h2 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.knowledge-list {
+  display: grid;
+  gap: 16px;
+}
+
+.knowledge-card h2 {
+  font-size: 20px;
+  margin: 14px 0 8px;
+}
+
+.archive-status-panel p,
+.knowledge-card p {
+  color: #435064;
+  margin: 0;
+}
+
 .empty-state {
   background: #ffffff;
   border: 1px dashed #cbd5e1;

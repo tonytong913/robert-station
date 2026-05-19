@@ -158,4 +158,64 @@ describe("App content loop", () => {
     expect(screen.getByText("Draft v1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate Xiaohongshu package" })).toBeEnabled();
   });
+
+  it("archives the selected project and shows archive status", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
+
+    expect(await screen.findByText("Archived")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("lists archived knowledge items in the Knowledge screen", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
+    await screen.findByText("Archived");
+    fireEvent.click(screen.getByRole("button", { name: "Knowledge" }));
+
+    expect(screen.getByRole("heading", { name: "Knowledge" })).toBeInTheDocument();
+    expect(screen.getByText(/Reusable lesson:/)).toBeInTheDocument();
+  });
+
+  it("shows an inline error and keeps the current draft when project archive fails", async () => {
+    window.robertStation.contentLoop.archiveProject = vi.fn(async () => {
+      throw new Error("archive failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not archive project. Try again.");
+    expect(screen.getByText("Draft v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive project" })).toBeEnabled();
+  });
 });
