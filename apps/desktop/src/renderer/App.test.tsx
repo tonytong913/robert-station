@@ -57,8 +57,15 @@ describe("App content loop", () => {
 
     await screen.findByRole("heading", { name: "Robert Station" });
     fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
-    fireEvent.click(screen.getByRole("button", { name: "Generate topics" }));
+    const generateButton = screen.getByRole("button", { name: "Generate topics" });
+    fireEvent.click(generateButton);
 
-    expect(await screen.findByText("Could not generate topics. Try again.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not generate topics. Try again.");
+    expect(
+      screen.getByRole("article", {
+        name: "How to build a personal AI workstation for daily content work"
+      })
+    ).toBeInTheDocument();
+    expect(generateButton).toBeEnabled();
   });
 });

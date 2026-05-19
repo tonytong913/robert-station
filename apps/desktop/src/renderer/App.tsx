@@ -2,7 +2,7 @@ import { DEFAULT_COLUMNS } from "@robert-station/core";
 import type { ContentColumnSlug } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 import type { ReactElement } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { generatePersistedTopics, loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
 
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"] as const;
@@ -10,6 +10,7 @@ const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"
 type Screen = (typeof workflowStages)[number];
 
 export function App(): ReactElement {
+  const isMountedRef = useRef(false);
   const [screen, setScreen] = useState<Screen>("Dashboard");
   const [contentLoop, setContentLoop] = useState<PersistedContentLoopState | null>(null);
   const [topicGenerationColumn, setTopicGenerationColumn] = useState<ContentColumnSlug>("ai");
@@ -17,16 +18,16 @@ export function App(): ReactElement {
   const [topicGenerationError, setTopicGenerationError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    isMountedRef.current = true;
 
     void loadPersistedContentLoop().then((state) => {
-      if (!cancelled) {
+      if (isMountedRef.current) {
         setContentLoop(state);
       }
     });
 
     return () => {
-      cancelled = true;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -40,21 +41,33 @@ export function App(): ReactElement {
 
   async function handlePromote(topicId: string): Promise<void> {
     const nextState = await promotePersistedTopic(topicId);
-    setContentLoop(nextState);
-    setScreen("Creation Studio");
+    if (isMountedRef.current) {
+      setContentLoop(nextState);
+      setScreen("Creation Studio");
+    }
   }
 
   async function handleGenerateTopics(): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     setIsGeneratingTopics(true);
     setTopicGenerationError(null);
 
     try {
       const nextState = await generatePersistedTopics(topicGenerationColumn);
-      setContentLoop(nextState);
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
     } catch {
-      setTopicGenerationError("Could not generate topics. Try again.");
+      if (isMountedRef.current) {
+        setTopicGenerationError("Could not generate topics. Try again.");
+      }
     } finally {
-      setIsGeneratingTopics(false);
+      if (isMountedRef.current) {
+        setIsGeneratingTopics(false);
+      }
     }
   }
 
@@ -153,7 +166,11 @@ export function App(): ReactElement {
               <button disabled={isGeneratingTopics} onClick={() => void handleGenerateTopics()} type="button">
                 {isGeneratingTopics ? "Generating..." : "Generate topics"}
               </button>
-              {topicGenerationError ? <p className="inline-error">{topicGenerationError}</p> : null}
+              {topicGenerationError ? (
+                <p className="inline-error" role="alert">
+                  {topicGenerationError}
+                </p>
+              ) : null}
             </div>
             <section className="topic-grid" aria-label="Topic candidates">
               {contentLoop.topics.map((topic) => (

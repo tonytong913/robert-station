@@ -303,3 +303,63 @@ button {
   color: #64748b;
   padding: 24px;
 }
+
+@media (max-width: 760px) {
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar {
+    padding: 14px;
+  }
+
+  .brand {
+    margin-bottom: 14px;
+  }
+
+  .sidebar nav {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .dashboard {
+    padding: 18px;
+  }
+
+  .dashboard-header {
+    align-items: stretch;
+    display: grid;
+    gap: 14px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 28px;
+  }
+
+  .metric-strip {
+    flex-wrap: wrap;
+  }
+
+  .summary-grid,
+  .topic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .column-card dl,
+  .score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topic-toolbar {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .topic-toolbar select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .creation-studio {
+    grid-template-columns: 1fr;
+  }
+}
