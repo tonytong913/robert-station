@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
+import { generatePersistedTopics, loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
 
 describe("content loop loader", () => {
   it("loads content loop state from preload API", async () => {
@@ -13,5 +13,11 @@ describe("content loop loader", () => {
     await promotePersistedTopic("topic_ai_local-workstation");
 
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
+  });
+
+  it("generates topics through preload API", async () => {
+    await generatePersistedTopics("ai");
+
+    expect(window.robertStation.contentLoop.generateTopics).toHaveBeenCalledWith("ai");
   });
 });
