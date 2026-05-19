@@ -103,6 +103,24 @@ CREATE TABLE IF NOT EXISTS source_references (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS platform_packages (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  draft_version_id TEXT NOT NULL REFERENCES draft_versions(id),
+  platform TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  cover_text TEXT NOT NULL,
+  required_assets_json TEXT NOT NULL DEFAULT '[]',
+  checks_json TEXT NOT NULL DEFAULT '[]',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS assets (
   id TEXT PRIMARY KEY,
   remote_id TEXT,

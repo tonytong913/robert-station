@@ -2,15 +2,25 @@ import {
   createContentProjectFromTopic,
   createSampleContentLoopSeed,
   generateMockDraftPackage,
-  generateMockTopics
+  generateMockTopics,
+  generateMockXiaohongshuPackage
 } from "@robert-station/core";
-import type { ContentColumnSlug, ContentProject, DraftVersion, SourceReference, Topic } from "@robert-station/core";
+import type {
+  ContentColumnSlug,
+  ContentProject,
+  DraftVersion,
+  Platform,
+  PlatformPackage,
+  SourceReference,
+  Topic
+} from "@robert-station/core";
 
 export interface PersistedContentLoopState {
   topics: Topic[];
   sourceReferences: SourceReference[];
   projects: ContentProject[];
   drafts: DraftVersion[];
+  platformPackages: PlatformPackage[];
   selectedProjectId: string | null;
 }
 
@@ -18,6 +28,7 @@ export interface ContentLoopRepository {
   loadContentLoop(): Promise<PersistedContentLoopState>;
   generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState>;
   generateDraftPackage(projectId: string): Promise<PersistedContentLoopState>;
+  generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
 
@@ -36,6 +47,7 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       sourceReferences: seed.sourceReferences,
       projects: [],
       drafts: [],
+      platformPackages: [],
       selectedProjectId: null
     });
   }
@@ -94,6 +106,38 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
     this.state = {
       ...this.state,
       drafts: [draft, ...this.state.drafts],
+      selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
+  async generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState> {
+    if (platform !== "xiaohongshu") {
+      return cloneState(this.state);
+    }
+
+    const project = this.state.projects.find((candidate) => candidate.id === projectId);
+    const draft = this.state.drafts
+      .filter((candidate) => candidate.contentProjectId === projectId)
+      .sort((left, right) => right.version - left.version || right.updatedAt.localeCompare(left.updatedAt))[0];
+
+    if (!project || !draft) {
+      return cloneState(this.state);
+    }
+
+    const platformPackage = generateMockXiaohongshuPackage({
+      project,
+      draft,
+      now: new Date()
+    });
+
+    this.state = {
+      ...this.state,
+      platformPackages: [
+        platformPackage,
+        ...this.state.platformPackages.filter((candidate) => candidate.id !== platformPackage.id)
+      ],
       selectedProjectId: project.id
     };
 

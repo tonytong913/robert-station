@@ -4,7 +4,8 @@ import {
   createDefaultWorkspaceSeed,
   createSampleContentLoopSeed,
   generateMockDraftPackage,
-  generateMockTopics
+  generateMockTopics,
+  generateMockXiaohongshuPackage
 } from "@robert-station/core";
 import type {
   ContentColumnSlug,
@@ -12,6 +13,8 @@ import type {
   ContentProjectStatus,
   DraftVersion,
   Platform,
+  PlatformPackage,
+  PlatformPackageCheck,
   SourceReference,
   SourceReferenceKind,
   Topic,
@@ -78,6 +81,22 @@ interface DraftVersionRow {
   updated_at: string;
 }
 
+interface PlatformPackageRow {
+  id: string;
+  workspace_id: string;
+  content_project_id: string;
+  draft_version_id: string;
+  platform: string;
+  title: string;
+  body: string;
+  tags_json: string;
+  cover_text: string;
+  required_assets_json: string;
+  checks_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class SqliteContentLoopRepository implements ContentLoopRepository {
   private constructor(private readonly database: DatabaseSync) {}
 
@@ -137,6 +156,31 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
 
     this.runTransaction(() => {
       this.upsertDraftVersion(draft);
+    });
+
+    return this.loadState(project.id);
+  }
+
+  async generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState> {
+    if (platform !== "xiaohongshu") {
+      return this.loadState();
+    }
+
+    const project = this.getContentProject(projectId);
+    const draft = this.getLatestDraftForProject(projectId);
+
+    if (!project || !draft) {
+      return this.loadState();
+    }
+
+    const platformPackage = generateMockXiaohongshuPackage({
+      project,
+      draft,
+      now: this.createPromotionDate()
+    });
+
+    this.runTransaction(() => {
+      this.upsertPlatformPackage(platformPackage);
     });
 
     return this.loadState(project.id);
@@ -234,6 +278,9 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const drafts = this.database
       .prepare("SELECT * FROM draft_versions ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as DraftVersionRow[];
+    const platformPackages = this.database
+      .prepare("SELECT * FROM platform_packages ORDER BY updated_at DESC, created_at DESC, id ASC;")
+      .all() as unknown as PlatformPackageRow[];
     const selectedProject = selectedProjectId
       ? { id: selectedProjectId }
       : (this.database
@@ -245,6 +292,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       sourceReferences: sourceReferences.map(mapSourceReferenceRow),
       projects: projects.map(mapContentProjectRow),
       drafts: drafts.map(mapDraftVersionRow),
+      platformPackages: platformPackages.map(mapPlatformPackageRow),
       selectedProjectId: selectedProject?.id ?? null
     };
   }
@@ -279,6 +327,19 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       .get(projectId) as { version: number | null };
 
     return (row.version ?? 0) + 1;
+  }
+
+  private getLatestDraftForProject(projectId: string): DraftVersion | null {
+    const row = this.database
+      .prepare(
+        `SELECT * FROM draft_versions
+         WHERE content_project_id = ?
+         ORDER BY version DESC, updated_at DESC, id ASC
+         LIMIT 1;`
+      )
+      .get(projectId) as DraftVersionRow | undefined;
+
+    return row ? mapDraftVersionRow(row) : null;
   }
 
   private runTransaction(work: () => void): void {
@@ -320,6 +381,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            SELECT updated_at FROM content_projects
            UNION ALL
            SELECT updated_at FROM draft_versions
+           UNION ALL
+           SELECT updated_at FROM platform_packages
          );`
       )
       .get() as { updated_at: string | null };
@@ -495,6 +558,44 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
         draft.updatedAt
       );
   }
+
+  private upsertPlatformPackage(platformPackage: PlatformPackage): void {
+    this.database
+      .prepare(
+        `INSERT INTO platform_packages (
+          id, workspace_id, content_project_id, draft_version_id, platform, title, body,
+          tags_json, cover_text, required_assets_json, checks_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          content_project_id = excluded.content_project_id,
+          draft_version_id = excluded.draft_version_id,
+          platform = excluded.platform,
+          title = excluded.title,
+          body = excluded.body,
+          tags_json = excluded.tags_json,
+          cover_text = excluded.cover_text,
+          required_assets_json = excluded.required_assets_json,
+          checks_json = excluded.checks_json,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        platformPackage.id,
+        platformPackage.workspaceId,
+        platformPackage.contentProjectId,
+        platformPackage.draftVersionId,
+        platformPackage.platform,
+        platformPackage.title,
+        platformPackage.body,
+        JSON.stringify(platformPackage.tags),
+        platformPackage.coverText,
+        JSON.stringify(platformPackage.requiredAssets),
+        JSON.stringify(platformPackage.checks),
+        platformPackage.createdAt,
+        platformPackage.updatedAt
+      );
+  }
 }
 
 function mapTopicRow(row: TopicRow): Topic {
@@ -550,6 +651,24 @@ function mapDraftVersionRow(row: DraftVersionRow): DraftVersion {
     title: row.title,
     body: row.body,
     createdBy: row.created_by as DraftVersion["createdBy"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapPlatformPackageRow(row: PlatformPackageRow): PlatformPackage {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    contentProjectId: row.content_project_id,
+    draftVersionId: row.draft_version_id,
+    platform: row.platform as Platform,
+    title: row.title,
+    body: row.body,
+    tags: JSON.parse(row.tags_json) as string[],
+    coverText: row.cover_text,
+    requiredAssets: JSON.parse(row.required_assets_json) as string[],
+    checks: JSON.parse(row.checks_json) as PlatformPackageCheck[],
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

@@ -30,6 +30,7 @@ describe("SqliteContentLoopRepository", () => {
     expect(firstLoad.topics).toHaveLength(4);
     expect(firstLoad.projects).toHaveLength(0);
     expect(firstLoad.drafts).toHaveLength(0);
+    expect(firstLoad.platformPackages).toHaveLength(0);
     expect(secondLoad).toEqual(firstLoad);
   });
 
@@ -50,7 +51,8 @@ describe("SqliteContentLoopRepository", () => {
         "topics",
         "source_references",
         "content_projects",
-        "draft_versions"
+        "draft_versions",
+        "platform_packages"
       ])
     );
   });
@@ -110,6 +112,56 @@ describe("SqliteContentLoopRepository", () => {
     repository.close();
 
     expect(afterGenerate).toEqual(before);
+  });
+
+  it("persists generated platform packages across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await firstRepository.generateDraftPackage(projectId);
+    const afterPackage = await firstRepository.generatePlatformPackage(projectId, "xiaohongshu");
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterPackage.platformPackages).toHaveLength(1);
+    expect(afterPackage.platformPackages[0]?.platform).toBe("xiaohongshu");
+    expect(afterReload).toEqual(afterPackage);
+  });
+
+  it("replaces a generated platform package for the same draft and platform", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(projectId);
+    const afterFirstPackage = await repository.generatePlatformPackage(projectId, "xiaohongshu");
+    const afterSecondPackage = await repository.generatePlatformPackage(projectId, "xiaohongshu");
+    repository.close();
+
+    expect(afterFirstPackage.platformPackages).toHaveLength(1);
+    expect(afterSecondPackage.platformPackages).toHaveLength(1);
+    expect(afterSecondPackage.platformPackages[0]?.id).toBe(afterFirstPackage.platformPackages[0]?.id);
+  });
+
+  it("does not insert a platform package for a missing project", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterMissingProject = await repository.generatePlatformPackage("project_missing", "xiaohongshu");
+    repository.close();
+
+    expect(afterMissingProject).toEqual(before);
   });
 
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {

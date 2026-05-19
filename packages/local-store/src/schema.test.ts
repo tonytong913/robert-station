@@ -12,6 +12,7 @@ describe("SQLite schema", () => {
       "content_projects",
       "draft_versions",
       "source_references",
+      "platform_packages",
       "assets"
     ]) {
       expect(SQLITE_SCHEMA).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
