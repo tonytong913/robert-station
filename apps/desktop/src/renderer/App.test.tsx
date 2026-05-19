@@ -257,6 +257,46 @@ describe("App content loop", () => {
     expect(screen.getByRole("heading", { name: "Xiaohongshu Package" })).toBeInTheDocument();
   });
 
+  it("imports and saves metrics CSV for the selected publish record", async () => {
+    await publishXiaohongshuPackage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
+
+    expect(await screen.findByText("1 matched row")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
+
+    expect(await screen.findByText("Views")).toBeInTheDocument();
+    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.importMetricCsv).toHaveBeenCalled();
+    expect(window.robertStation.contentLoop.saveMetricImport).toHaveBeenCalled();
+  });
+
+  it("shows an inline error and keeps package content when metrics CSV import fails", async () => {
+    window.robertStation.contentLoop.importMetricCsv = vi.fn(async () => {
+      throw new Error("import failed");
+    });
+
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
+
+    expect(await screen.findByText("Could not import metrics CSV. Try again.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Xiaohongshu Package" })).toBeInTheDocument();
+  });
+
+  it("shows an inline error and keeps metrics preview when imported metrics save fails", async () => {
+    window.robertStation.contentLoop.saveMetricImport = vi.fn(async () => {
+      throw new Error("save failed");
+    });
+
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
+    await screen.findByText("1 matched row");
+    fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
+
+    expect(await screen.findByText("Could not save imported metrics. Try again.")).toBeInTheDocument();
+    expect(screen.getByText("1 matched row")).toBeInTheDocument();
+  });
+
   it("archives the selected project and shows archive status", async () => {
     render(<App />);
 
@@ -317,3 +357,24 @@ describe("App content loop", () => {
     expect(screen.getByRole("button", { name: "Archive project" })).toBeEnabled();
   });
 });
+
+async function publishXiaohongshuPackage(): Promise<void> {
+  render(<App />);
+
+  await screen.findByRole("heading", { name: "Robert Station" });
+  fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+  const topicCard = screen.getByRole("article", {
+    name: "How to build a personal AI workstation for daily content work"
+  });
+  fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+  await screen.findByRole("heading", { name: "Creation Studio" });
+  fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+  await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+  fireEvent.change(screen.getByLabelText("Publish URL"), {
+    target: { value: "https://www.xiaohongshu.com/explore/demo" }
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
+
+  await screen.findByText("Published");
+}

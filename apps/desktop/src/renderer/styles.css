@@ -373,6 +373,47 @@ button {
   padding: 10px;
 }
 
+.metrics-import-panel {
+  border-top: 1px solid #dbe3ea;
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.metric-import-preview {
+  background: #f8fafc;
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.metric-snapshot-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  margin: 0;
+}
+
+.metric-snapshot-summary div {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.metric-snapshot-summary dt {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.metric-snapshot-summary dd {
+  color: #172026;
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 4px 0 0;
+}
+
 .archive-status-panel,
 .knowledge-card {
   background: #ffffff;

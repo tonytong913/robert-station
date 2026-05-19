@@ -8,9 +8,11 @@ import {
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedTopics,
+  importPersistedMetricCsv,
   loadPersistedContentLoop,
   promotePersistedTopic,
-  recordPersistedManualPublish
+  recordPersistedManualPublish,
+  savePersistedMetricImport
 } from "./content-loop-loader";
 
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio", "Knowledge"] as const;
@@ -35,6 +37,10 @@ export function App(): ReactElement {
   const [publishNote, setPublishNote] = useState("");
   const [isSavingPublishRecord, setIsSavingPublishRecord] = useState(false);
   const [publishRecordError, setPublishRecordError] = useState<string | null>(null);
+  const [isImportingMetrics, setIsImportingMetrics] = useState(false);
+  const [isSavingMetricImport, setIsSavingMetricImport] = useState(false);
+  const [metricImportError, setMetricImportError] = useState<string | null>(null);
+  const [metricSaveError, setMetricSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -74,6 +80,15 @@ export function App(): ReactElement {
     selectedXiaohongshuPackage && contentLoop
       ? contentLoop.publishRecords.find((record) => record.platformPackageId === selectedXiaohongshuPackage.id) ?? null
       : null;
+  const selectedMetricSnapshots =
+    selectedPublishRecord && contentLoop
+      ? contentLoop.metricSnapshots.filter((snapshot) => snapshot.publishRecordId === selectedPublishRecord.id)
+      : [];
+  const selectedLatestMetricSnapshot = selectedMetricSnapshots[0] ?? null;
+  const matchedMetricImportRows =
+    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "matched").length ?? 0;
+  const invalidMetricImportRows =
+    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "invalid").length ?? 0;
   const selectedArchiveRecord =
     selectedProject && contentLoop
       ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
@@ -234,6 +249,55 @@ export function App(): ReactElement {
     } finally {
       if (isMountedRef.current) {
         setIsSavingPublishRecord(false);
+      }
+    }
+  }
+
+  async function handleImportMetricCsv(): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsImportingMetrics(true);
+    setMetricImportError(null);
+    setMetricSaveError(null);
+
+    try {
+      const nextState = await importPersistedMetricCsv();
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setMetricImportError("Could not import metrics CSV. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsImportingMetrics(false);
+      }
+    }
+  }
+
+  async function handleSaveMetricImport(): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsSavingMetricImport(true);
+    setMetricSaveError(null);
+
+    try {
+      const nextState = await savePersistedMetricImport();
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setMetricSaveError("Could not save imported metrics. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSavingMetricImport(false);
       }
     }
   }
@@ -550,7 +614,79 @@ export function App(): ReactElement {
                             <p>{selectedPublishRecord.publishedAt}</p>
                             <p>{selectedPublishRecord.url || "No URL recorded"}</p>
                             {selectedPublishRecord.note ? <p>{selectedPublishRecord.note}</p> : null}
+                            {selectedLatestMetricSnapshot ? (
+                              <dl className="metric-snapshot-summary">
+                                <div>
+                                  <dt>Views</dt>
+                                  <dd>{selectedLatestMetricSnapshot.views}</dd>
+                                </div>
+                                <div>
+                                  <dt>Likes</dt>
+                                  <dd>{selectedLatestMetricSnapshot.likes}</dd>
+                                </div>
+                                <div>
+                                  <dt>Favorites</dt>
+                                  <dd>{selectedLatestMetricSnapshot.favorites}</dd>
+                                </div>
+                                <div>
+                                  <dt>Comments</dt>
+                                  <dd>{selectedLatestMetricSnapshot.comments}</dd>
+                                </div>
+                                <div>
+                                  <dt>Shares</dt>
+                                  <dd>{selectedLatestMetricSnapshot.shares}</dd>
+                                </div>
+                                <div>
+                                  <dt>Snapshot</dt>
+                                  <dd>{selectedLatestMetricSnapshot.snapshotAt}</dd>
+                                </div>
+                              </dl>
+                            ) : null}
                           </div>
+                        ) : null}
+                        {selectedPublishRecord ? (
+                          <section className="metrics-import-panel" aria-label="Metrics import">
+                            <h3>Metrics import</h3>
+                            <button disabled={isImportingMetrics} onClick={() => void handleImportMetricCsv()} type="button">
+                              {isImportingMetrics ? "Importing..." : "Import metrics CSV"}
+                            </button>
+                            {metricImportError ? (
+                              <p className="inline-error" role="alert">
+                                {metricImportError}
+                              </p>
+                            ) : null}
+                            {contentLoop.metricImportPreview ? (
+                              <div className="metric-import-preview">
+                                <p>
+                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"}
+                                </p>
+                                <p>
+                                  {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
+                                </p>
+                                {contentLoop.metricImportPreview.rows
+                                  .filter((row) => row.status === "invalid")
+                                  .map((row) => (
+                                    <p key={row.rowNumber}>
+                                      Row {row.rowNumber}: {row.error}
+                                    </p>
+                                  ))}
+                                {matchedMetricImportRows > 0 ? (
+                                  <button
+                                    disabled={isSavingMetricImport}
+                                    onClick={() => void handleSaveMetricImport()}
+                                    type="button"
+                                  >
+                                    {isSavingMetricImport ? "Saving..." : "Save imported metrics"}
+                                  </button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {metricSaveError ? (
+                              <p className="inline-error" role="alert">
+                                {metricSaveError}
+                              </p>
+                            ) : null}
+                          </section>
                         ) : null}
                       </section>
                     </>
