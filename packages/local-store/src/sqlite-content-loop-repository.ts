@@ -3,6 +3,7 @@ import {
   createContentProjectFromTopic,
   createDefaultWorkspaceSeed,
   createSampleContentLoopSeed,
+  generateMockDraftPackage,
   generateMockTopics
 } from "@robert-station/core";
 import type {
@@ -117,6 +118,30 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     return this.loadState();
   }
 
+  async generateDraftPackage(projectId: string): Promise<PersistedContentLoopState> {
+    const project = this.getContentProject(projectId);
+
+    if (!project) {
+      return this.loadState();
+    }
+
+    const topic = project.sourceTopicId ? this.getTopic(project.sourceTopicId) : null;
+    const sourceReferences = this.getSourceReferencesForProject(project);
+    const draft = generateMockDraftPackage({
+      project,
+      topic,
+      sourceReferences,
+      nextVersion: this.getNextDraftVersion(project.id),
+      now: this.createPromotionDate()
+    });
+
+    this.runTransaction(() => {
+      this.upsertDraftVersion(draft);
+    });
+
+    return this.loadState(project.id);
+  }
+
   async promoteTopic(topicId: string): Promise<PersistedContentLoopState> {
     const topic = this.getTopic(topicId);
 
@@ -196,7 +221,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     });
   }
 
-  private loadState(): PersistedContentLoopState {
+  private loadState(selectedProjectId?: string): PersistedContentLoopState {
     const topics = this.database
       .prepare("SELECT * FROM topics ORDER BY created_at ASC, id ASC;")
       .all() as unknown as TopicRow[];
@@ -209,9 +234,11 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const drafts = this.database
       .prepare("SELECT * FROM draft_versions ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as DraftVersionRow[];
-    const selectedProject = this.database
-      .prepare("SELECT id FROM content_projects ORDER BY updated_at DESC, created_at DESC, id ASC LIMIT 1;")
-      .get() as { id: string } | undefined;
+    const selectedProject = selectedProjectId
+      ? { id: selectedProjectId }
+      : (this.database
+          .prepare("SELECT id FROM content_projects ORDER BY updated_at DESC, created_at DESC, id ASC LIMIT 1;")
+          .get() as { id: string } | undefined);
 
     return {
       topics: topics.map(mapTopicRow),
@@ -225,6 +252,33 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   private getTopic(topicId: string): Topic | null {
     const row = this.database.prepare("SELECT * FROM topics WHERE id = ?;").get(topicId) as TopicRow | undefined;
     return row ? mapTopicRow(row) : null;
+  }
+
+  private getContentProject(projectId: string): ContentProject | null {
+    const row = this.database
+      .prepare("SELECT * FROM content_projects WHERE id = ?;")
+      .get(projectId) as ContentProjectRow | undefined;
+    return row ? mapContentProjectRow(row) : null;
+  }
+
+  private getSourceReferencesForProject(project: ContentProject): SourceReference[] {
+    const rows = this.database
+      .prepare(
+        `SELECT * FROM source_references
+         WHERE topic_id = ? OR content_project_id = ?
+         ORDER BY created_at ASC, id ASC;`
+      )
+      .all(project.sourceTopicId ?? null, project.id) as unknown as SourceReferenceRow[];
+
+    return rows.map(mapSourceReferenceRow);
+  }
+
+  private getNextDraftVersion(projectId: string): number {
+    const row = this.database
+      .prepare("SELECT MAX(version) AS version FROM draft_versions WHERE content_project_id = ?;")
+      .get(projectId) as { version: number | null };
+
+    return (row.version ?? 0) + 1;
   }
 
   private runTransaction(work: () => void): void {

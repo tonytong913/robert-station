@@ -1,6 +1,7 @@
 import {
   createContentProjectFromTopic,
   createSampleContentLoopSeed,
+  generateMockDraftPackage,
   generateMockTopics
 } from "@robert-station/core";
 import type { ContentColumnSlug, ContentProject, DraftVersion, SourceReference, Topic } from "@robert-station/core";
@@ -16,6 +17,7 @@ export interface PersistedContentLoopState {
 export interface ContentLoopRepository {
   loadContentLoop(): Promise<PersistedContentLoopState>;
   generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState>;
+  generateDraftPackage(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
 
@@ -58,6 +60,41 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
         ...this.state.sourceReferences,
         ...generated.sourceReferences.filter((source) => !existingSourceIds.has(source.id))
       ]
+    };
+
+    return cloneState(this.state);
+  }
+
+  async generateDraftPackage(projectId: string): Promise<PersistedContentLoopState> {
+    const project = this.state.projects.find((candidate) => candidate.id === projectId);
+
+    if (!project) {
+      return cloneState(this.state);
+    }
+
+    const topic = project.sourceTopicId
+      ? this.state.topics.find((candidate) => candidate.id === project.sourceTopicId) ?? null
+      : null;
+    const sourceReferences = this.state.sourceReferences.filter(
+      (source) => source.topicId === project.sourceTopicId || source.contentProjectId === project.id
+    );
+    const nextVersion =
+      Math.max(
+        0,
+        ...this.state.drafts.filter((draft) => draft.contentProjectId === project.id).map((draft) => draft.version)
+      ) + 1;
+    const draft = generateMockDraftPackage({
+      project,
+      topic,
+      sourceReferences,
+      nextVersion,
+      now: new Date()
+    });
+
+    this.state = {
+      ...this.state,
+      drafts: [draft, ...this.state.drafts],
+      selectedProjectId: project.id
     };
 
     return cloneState(this.state);

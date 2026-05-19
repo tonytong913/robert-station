@@ -83,6 +83,35 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterReload).toEqual(afterGenerate);
   });
 
+  it("persists generated draft packages across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    const afterGenerate = await firstRepository.generateDraftPackage(projectId);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterGenerate.drafts.filter((draft) => draft.contentProjectId === projectId)).toHaveLength(2);
+    expect(afterReload).toEqual(afterGenerate);
+  });
+
+  it("does not insert a draft package for a missing project", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterGenerate = await repository.generateDraftPackage("project_missing");
+    repository.close();
+
+    expect(afterGenerate).toEqual(before);
+  });
+
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
 
