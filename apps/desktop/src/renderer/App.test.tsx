@@ -262,7 +262,7 @@ describe("App content loop", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
 
-    expect(await screen.findByText("1 matched row")).toBeInTheDocument();
+    expect(await screen.findByText("1 matched row for this publish record")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
 
     expect(await screen.findByText("Views")).toBeInTheDocument();
@@ -290,11 +290,25 @@ describe("App content loop", () => {
 
     await publishXiaohongshuPackage();
     fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
-    await screen.findByText("1 matched row");
+    await screen.findByText("1 matched row for this publish record");
     fireEvent.click(screen.getByRole("button", { name: "Save imported metrics" }));
 
     expect(await screen.findByText("Could not save imported metrics. Try again.")).toBeInTheDocument();
-    expect(screen.getByText("1 matched row")).toBeInTheDocument();
+    expect(screen.getByText("1 matched row for this publish record")).toBeInTheDocument();
+  });
+
+  it("does not show matched metric preview rows from another publish record", async () => {
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Import metrics CSV" }));
+    await screen.findByText("1 matched row for this publish record");
+
+    await promoteAndPublishXiaohongshuPackage(
+      "A simple family finance dashboard for monthly decisions",
+      "https://www.xiaohongshu.com/explore/finance"
+    );
+
+    expect(screen.queryByText("1 matched row for this publish record")).not.toBeInTheDocument();
+    expect(screen.getByText("0 matched rows for this publish record")).toBeInTheDocument();
   });
 
   it("archives the selected project and shows archive status", async () => {
@@ -362,17 +376,22 @@ async function publishXiaohongshuPackage(): Promise<void> {
   render(<App />);
 
   await screen.findByRole("heading", { name: "Robert Station" });
+  await promoteAndPublishXiaohongshuPackage(
+    "How to build a personal AI workstation for daily content work",
+    "https://www.xiaohongshu.com/explore/demo"
+  );
+}
+
+async function promoteAndPublishXiaohongshuPackage(topicName: string, publishUrl: string): Promise<void> {
   fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
-  const topicCard = screen.getByRole("article", {
-    name: "How to build a personal AI workstation for daily content work"
-  });
+  const topicCard = screen.getByRole("article", { name: topicName });
   fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
 
   await screen.findByRole("heading", { name: "Creation Studio" });
   fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
   await screen.findByRole("heading", { name: "Xiaohongshu Package" });
   fireEvent.change(screen.getByLabelText("Publish URL"), {
-    target: { value: "https://www.xiaohongshu.com/explore/demo" }
+    target: { value: publishUrl }
   });
   fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
 

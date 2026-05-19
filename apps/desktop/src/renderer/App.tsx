@@ -85,10 +85,17 @@ export function App(): ReactElement {
       ? contentLoop.metricSnapshots.filter((snapshot) => snapshot.publishRecordId === selectedPublishRecord.id)
       : [];
   const selectedLatestMetricSnapshot = selectedMetricSnapshots[0] ?? null;
+  const selectedMetricImportRows =
+    selectedPublishRecord && contentLoop
+      ? contentLoop.metricImportPreview?.rows.filter(
+          (row) => row.status === "matched" && row.publishRecordId === selectedPublishRecord.id
+        ) ?? []
+      : [];
+  const invalidMetricImportPreviewRows =
+    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "invalid") ?? [];
   const matchedMetricImportRows =
-    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "matched").length ?? 0;
-  const invalidMetricImportRows =
-    contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "invalid").length ?? 0;
+    selectedMetricImportRows.length;
+  const invalidMetricImportRows = invalidMetricImportPreviewRows.length;
   const selectedArchiveRecord =
     selectedProject && contentLoop
       ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
@@ -658,21 +665,20 @@ export function App(): ReactElement {
                             {contentLoop.metricImportPreview ? (
                               <div className="metric-import-preview">
                                 <p>
-                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"}
+                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"} for
+                                  this publish record
                                 </p>
                                 <p>
                                   {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
                                 </p>
-                                {contentLoop.metricImportPreview.rows
-                                  .filter((row) => row.status === "invalid")
-                                  .map((row) => (
-                                    <p key={row.rowNumber}>
-                                      Row {row.rowNumber}: {row.error}
-                                    </p>
-                                  ))}
+                                {invalidMetricImportPreviewRows.map((row) => (
+                                  <p key={row.rowNumber}>
+                                    Row {row.rowNumber}: {row.error}
+                                  </p>
+                                ))}
                                 {matchedMetricImportRows > 0 ? (
                                   <button
-                                    disabled={isSavingMetricImport}
+                                    disabled={isImportingMetrics || isSavingMetricImport}
                                     onClick={() => void handleSaveMetricImport()}
                                     type="button"
                                   >
