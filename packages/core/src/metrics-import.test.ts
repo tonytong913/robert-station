@@ -100,6 +100,48 @@ describe("createMetricImportPreview", () => {
     expect(preview.rows[0]?.snapshotAt).toBe("2026-05-21T10:11:12.000Z");
   });
 
+  it("ignores blank lines without creating invalid preview rows", () => {
+    const preview = createMetricImportPreview({
+      input: {
+        sourceFileName: "blank-lines.csv",
+        csvText:
+          "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+          "\n" +
+          "   \n" +
+          "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,1000,88,34,12,9,2026-05-20T08:00:00.000Z,first import\n" +
+          "\n" +
+          "   \n"
+      },
+      publishRecords: [publishRecord],
+      now: new Date("2026-05-20T09:00:00.000Z")
+    });
+
+    expect(preview.rows).toHaveLength(1);
+    expect(preview.rows[0]).toMatchObject({
+      rowNumber: 4,
+      status: "matched",
+      publishRecordId: publishRecord.id
+    });
+  });
+
+  it("parses quoted commas in notes", () => {
+    const preview = createMetricImportPreview({
+      input: {
+        sourceFileName: "quoted-note.csv",
+        csvText:
+          "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+          'https://www.xiaohongshu.com/explore/demo,,xiaohongshu,1000,88,34,12,9,2026-05-20T08:00:00.000Z,"first import, with comma"'
+      },
+      publishRecords: [publishRecord],
+      now: new Date("2026-05-20T09:00:00.000Z")
+    });
+
+    expect(preview.rows[0]).toMatchObject({
+      status: "matched",
+      note: "first import, with comma"
+    });
+  });
+
   it("marks rows with invalid metrics as invalid", () => {
     const preview = createMetricImportPreview({
       input: {

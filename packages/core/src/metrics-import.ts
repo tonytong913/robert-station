@@ -57,15 +57,21 @@ export function createMetricImportPreview(request: CreateMetricImportPreviewRequ
   }
 
   const headerIndexes = buildHeaderIndexes(headerRow);
-  const rows = csvRows.slice(1).map((cells, index) =>
-    createPreviewRow({
-      rowNumber: index + 2,
-      cells,
-      headerIndexes,
-      publishRecords: request.publishRecords,
-      importTimestamp: createdAt
-    })
-  );
+  const rows = csvRows.slice(1).flatMap((cells, index) => {
+    if (isBlankCsvRecord(cells)) {
+      return [];
+    }
+
+    return [
+      createPreviewRow({
+        rowNumber: index + 2,
+        cells,
+        headerIndexes,
+        publishRecords: request.publishRecords,
+        importTimestamp: createdAt
+      })
+    ];
+  });
 
   return {
     ...basePreview,
@@ -164,6 +170,10 @@ function buildHeaderIndexes(headerRow: string[]): Map<CsvHeader, number> {
   }
 
   return indexes;
+}
+
+function isBlankCsvRecord(cells: string[]): boolean {
+  return cells.every((cell) => cell.trim() === "");
 }
 
 function getCell(cells: string[], headerIndexes: Map<CsvHeader, number>, header: CsvHeader): string {
