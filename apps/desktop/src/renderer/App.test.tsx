@@ -68,4 +68,46 @@ describe("App content loop", () => {
     ).toBeInTheDocument();
     expect(generateButton).toBeEnabled();
   });
+
+  it("generates a draft package for the selected project", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate draft package" }));
+
+    expect(await screen.findByText("Draft v2")).toBeInTheDocument();
+    expect(screen.getByText("Title Options")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateDraftPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("shows an inline error and keeps the current draft when draft package generation fails", async () => {
+    window.robertStation.contentLoop.generateDraftPackage = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate draft package" }));
+
+    expect(await screen.findByText("Could not generate draft package. Try again.")).toBeInTheDocument();
+    expect(screen.getByText("Draft v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate draft package" })).toBeEnabled();
+  });
 });

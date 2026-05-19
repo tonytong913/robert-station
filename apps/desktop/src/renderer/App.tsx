@@ -3,7 +3,12 @@ import type { ContentColumnSlug } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generatePersistedTopics, loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
+import {
+  generatePersistedDraftPackage,
+  generatePersistedTopics,
+  loadPersistedContentLoop,
+  promotePersistedTopic
+} from "./content-loop-loader";
 
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"] as const;
 
@@ -16,6 +21,8 @@ export function App(): ReactElement {
   const [topicGenerationColumn, setTopicGenerationColumn] = useState<ContentColumnSlug>("ai");
   const [isGeneratingTopics, setIsGeneratingTopics] = useState(false);
   const [topicGenerationError, setTopicGenerationError] = useState<string | null>(null);
+  const [isGeneratingDraftPackage, setIsGeneratingDraftPackage] = useState(false);
+  const [draftPackageError, setDraftPackageError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -67,6 +74,30 @@ export function App(): ReactElement {
     } finally {
       if (isMountedRef.current) {
         setIsGeneratingTopics(false);
+      }
+    }
+  }
+
+  async function handleGenerateDraftPackage(projectId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsGeneratingDraftPackage(true);
+    setDraftPackageError(null);
+
+    try {
+      const nextState = await generatePersistedDraftPackage(projectId);
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setDraftPackageError("Could not generate draft package. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsGeneratingDraftPackage(false);
       }
     }
   }
@@ -231,17 +262,49 @@ export function App(): ReactElement {
           <section className="creation-studio" aria-label="Selected project draft">
             {selectedProject && selectedDraft ? (
               <>
+                <div className="creation-actions">
+                  <button
+                    disabled={isGeneratingDraftPackage}
+                    onClick={() => void handleGenerateDraftPackage(selectedProject.id)}
+                    type="button"
+                  >
+                    {isGeneratingDraftPackage ? "Generating..." : "Generate draft package"}
+                  </button>
+                  {draftPackageError ? (
+                    <p className="inline-error" role="alert">
+                      {draftPackageError}
+                    </p>
+                  ) : null}
+                </div>
                 <div className="draft-panel">
                   <p className="eyebrow">Draft v{selectedDraft.version}</p>
                   <h2>{selectedDraft.title}</h2>
-                  {selectedDraft.body.split("\n\n").map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
+                  {selectedDraft.body.split("\n\n").map((block) => {
+                    const [firstLine, ...rest] = block.split("\n");
+                    const sectionTitle = firstLine ?? "";
+                    const isSection = rest.length > 0 && /^[A-Z][A-Za-z ]+$/.test(sectionTitle);
+
+                    if (isSection) {
+                      return (
+                        <section className="draft-section" key={block}>
+                          <h3>{sectionTitle}</h3>
+                          {rest.map((line) => (
+                            <p key={line}>{line}</p>
+                          ))}
+                        </section>
+                      );
+                    }
+
+                    return <p key={block}>{block}</p>;
+                  })}
                 </div>
                 <aside className="source-panel">
                   <h2>Sources</h2>
                   {contentLoop.sourceReferences
-                    .filter((source) => source.topicId === selectedProject.sourceTopicId)
+                    .filter(
+                      (source) =>
+                        source.topicId === selectedProject.sourceTopicId || source.contentProjectId === selectedProject.id
+                    )
                     .map((source) => (
                       <article key={source.id}>
                         <h3>{source.title}</h3>

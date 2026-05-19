@@ -286,6 +286,25 @@ button {
   grid-template-columns: minmax(0, 1fr) 320px;
 }
 
+.creation-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  grid-column: 1 / -1;
+}
+
+.draft-section {
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.draft-section h3 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
 .source-panel article {
   border-top: 1px solid #dbe3ea;
   padding-top: 12px;
