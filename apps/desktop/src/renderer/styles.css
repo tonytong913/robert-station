@@ -189,6 +189,38 @@ button {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
+.topic-toolbar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.topic-toolbar label {
+  color: #475569;
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.topic-toolbar select {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  min-width: 180px;
+  padding: 9px 10px;
+}
+
+.inline-error {
+  color: #b91c1c;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin: 0;
+}
+
 .topic-card,
 .draft-panel,
 .source-panel,

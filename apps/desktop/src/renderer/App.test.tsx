@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 describe("App content loop", () => {
@@ -30,5 +30,35 @@ describe("App content loop", () => {
     expect(screen.getByText("1 active project")).toBeInTheDocument();
     expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
+  });
+
+  it("generates topics for selected column from Topic Pool", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    fireEvent.change(screen.getByLabelText("Topic column"), { target: { value: "finance" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate topics" }));
+
+    expect(
+      await screen.findByRole("article", {
+        name: "A 30-minute monthly money review for busy families"
+      })
+    ).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateTopics).toHaveBeenCalledWith("finance");
+  });
+
+  it("shows inline error when topic generation fails", async () => {
+    window.robertStation.contentLoop.generateTopics = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate topics" }));
+
+    expect(await screen.findByText("Could not generate topics. Try again.")).toBeInTheDocument();
   });
 });
