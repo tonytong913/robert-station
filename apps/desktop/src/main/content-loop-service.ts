@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import type { ContentColumnSlug } from "@robert-station/core";
+import { DEFAULT_COLUMNS, type ContentColumnSlug } from "@robert-station/core";
 import type { ContentLoopRepository } from "@robert-station/local-store";
 import {
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
@@ -7,12 +7,22 @@ import {
   CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL
 } from "./ipc-channels";
 
+const CONTENT_COLUMN_SLUGS = new Set<string>(DEFAULT_COLUMNS.map((column) => column.slug));
+
 export function registerContentLoopIpc(repository: ContentLoopRepository): void {
   ipcMain.handle(CONTENT_LOOP_LOAD_CHANNEL, async () => repository.loadContentLoop());
-  ipcMain.handle(CONTENT_LOOP_GENERATE_TOPICS_CHANNEL, async (_event, columnSlug: ContentColumnSlug) =>
-    repository.generateTopics(columnSlug)
-  );
+  ipcMain.handle(CONTENT_LOOP_GENERATE_TOPICS_CHANNEL, async (_event, columnSlug: unknown) => {
+    if (!isContentColumnSlug(columnSlug)) {
+      throw new Error("Invalid content column slug.");
+    }
+
+    return repository.generateTopics(columnSlug);
+  });
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)
   );
+}
+
+function isContentColumnSlug(value: unknown): value is ContentColumnSlug {
+  return typeof value === "string" && CONTENT_COLUMN_SLUGS.has(value);
 }
