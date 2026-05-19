@@ -70,6 +70,19 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterReload).toEqual(afterPromote);
   });
 
+  it("persists generated topics across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterGenerate = await firstRepository.generateTopics("finance");
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterGenerate.topics.some((topic) => topic.id === "topic_finance_mock-monthly-money-review")).toBe(true);
+    expect(afterReload).toEqual(afterGenerate);
+  });
+
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
 
@@ -82,6 +95,22 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterSecondPromote.projects).toHaveLength(1);
     expect(afterSecondPromote.drafts).toHaveLength(1);
     expect(afterUnknownPromote).toEqual(afterSecondPromote);
+  });
+
+  it("does not duplicate generated topics for repeated column requests", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+
+    const afterGenerate = await repository.generateTopics("parenting");
+    const afterRepeat = await repository.generateTopics("parenting");
+
+    repository.close();
+
+    expect(afterGenerate.topics).toHaveLength(6);
+    expect(afterGenerate.sourceReferences).toHaveLength(6);
+    expect(afterGenerate.topics.filter((topic) => topic.id.startsWith("topic_parenting_mock-"))).toHaveLength(2);
+    expect(afterRepeat.topics).toHaveLength(6);
+    expect(afterRepeat.sourceReferences).toHaveLength(6);
+    expect(afterRepeat.topics.filter((topic) => topic.id.startsWith("topic_parenting_mock-"))).toHaveLength(2);
   });
 
   it("selects the latest promoted project after promoting different topics", async () => {

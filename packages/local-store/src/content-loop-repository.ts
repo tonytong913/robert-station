@@ -1,8 +1,9 @@
 import {
   createContentProjectFromTopic,
-  createSampleContentLoopSeed
+  createSampleContentLoopSeed,
+  generateMockTopics
 } from "@robert-station/core";
-import type { ContentProject, DraftVersion, SourceReference, Topic } from "@robert-station/core";
+import type { ContentColumnSlug, ContentProject, DraftVersion, SourceReference, Topic } from "@robert-station/core";
 
 export interface PersistedContentLoopState {
   topics: Topic[];
@@ -14,6 +15,7 @@ export interface PersistedContentLoopState {
 
 export interface ContentLoopRepository {
   loadContentLoop(): Promise<PersistedContentLoopState>;
+  generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
 
@@ -37,6 +39,27 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
   }
 
   async loadContentLoop(): Promise<PersistedContentLoopState> {
+    return cloneState(this.state);
+  }
+
+  async generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
+    const generated = generateMockTopics({
+      columnSlug,
+      workspaceId: this.state.topics[0]?.workspaceId ?? "workspace_robert-station",
+      now: new Date()
+    });
+    const existingTopicIds = new Set(this.state.topics.map((topic) => topic.id));
+    const existingSourceIds = new Set(this.state.sourceReferences.map((source) => source.id));
+
+    this.state = {
+      ...this.state,
+      topics: [...this.state.topics, ...generated.topics.filter((topic) => !existingTopicIds.has(topic.id))],
+      sourceReferences: [
+        ...this.state.sourceReferences,
+        ...generated.sourceReferences.filter((source) => !existingSourceIds.has(source.id))
+      ]
+    };
+
     return cloneState(this.state);
   }
 

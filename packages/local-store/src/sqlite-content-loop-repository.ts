@@ -2,7 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import {
   createContentProjectFromTopic,
   createDefaultWorkspaceSeed,
-  createSampleContentLoopSeed
+  createSampleContentLoopSeed,
+  generateMockTopics
 } from "@robert-station/core";
 import type {
   ContentColumnSlug,
@@ -97,6 +98,22 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   }
 
   async loadContentLoop(): Promise<PersistedContentLoopState> {
+    return this.loadState();
+  }
+
+  async generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
+    const generated = generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now: this.createPromotionDate() });
+
+    this.runTransaction(() => {
+      for (const topic of generated.topics) {
+        this.insertTopicIfMissing(topic);
+      }
+
+      for (const sourceReference of generated.sourceReferences) {
+        this.insertSourceReferenceIfMissing(sourceReference);
+      }
+    });
+
     return this.loadState();
   }
 
@@ -292,6 +309,30 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       );
   }
 
+  private insertTopicIfMissing(topic: Topic): void {
+    this.database
+      .prepare(
+        `INSERT OR IGNORE INTO topics (
+          id, workspace_id, column_slug, title, hook, audience, target_platforms_json,
+          status, score_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+      )
+      .run(
+        topic.id,
+        topic.workspaceId,
+        topic.columnSlug,
+        topic.title,
+        topic.hook,
+        topic.audience,
+        JSON.stringify(topic.targetPlatforms),
+        topic.status,
+        JSON.stringify(topic.score),
+        topic.createdAt,
+        topic.updatedAt
+      );
+  }
+
   private upsertSourceReference(sourceReference: SourceReference): void {
     this.database
       .prepare(
@@ -308,6 +349,28 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
           url = excluded.url,
           note = excluded.note,
           updated_at = excluded.updated_at;`
+      )
+      .run(
+        sourceReference.id,
+        sourceReference.workspaceId,
+        sourceReference.topicId ?? null,
+        sourceReference.contentProjectId ?? null,
+        sourceReference.kind,
+        sourceReference.title,
+        sourceReference.url ?? null,
+        sourceReference.note,
+        sourceReference.createdAt,
+        sourceReference.updatedAt
+      );
+  }
+
+  private insertSourceReferenceIfMissing(sourceReference: SourceReference): void {
+    this.database
+      .prepare(
+        `INSERT OR IGNORE INTO source_references (
+          id, workspace_id, topic_id, content_project_id, kind, title, url, note, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
       )
       .run(
         sourceReference.id,

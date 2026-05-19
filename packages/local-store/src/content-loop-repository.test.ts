@@ -29,4 +29,17 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterPromote.topics.find((topic) => topic.id === topicId)?.status).toBe("promoted");
     expect(afterReload).toEqual(afterPromote);
   });
+
+  it("generates mock topics in memory without duplicating repeated requests", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    const afterGenerate = await repository.generateTopics("ai");
+    const afterRepeat = await repository.generateTopics("ai");
+
+    expect(afterGenerate.topics).toHaveLength(6);
+    expect(afterGenerate.sourceReferences).toHaveLength(6);
+    expect(afterGenerate.topics.some((topic) => topic.id === "topic_ai_mock-workflow-automations")).toBe(true);
+    expect(afterRepeat.topics).toHaveLength(6);
+    expect(afterRepeat.sourceReferences).toHaveLength(6);
+  });
 });
