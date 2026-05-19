@@ -10,6 +10,8 @@ describe("InMemoryContentLoopRepository", () => {
     expect(state.projects).toHaveLength(0);
     expect(state.drafts).toHaveLength(0);
     expect(state.platformPackages).toHaveLength(0);
+    expect(state.archiveRecords).toHaveLength(0);
+    expect(state.knowledgeItems).toHaveLength(0);
     expect(state.selectedProjectId).toBeNull();
   });
 
@@ -106,5 +108,44 @@ describe("InMemoryContentLoopRepository", () => {
     const afterGenerate = await repository.generatePlatformPackage("project_missing", "xiaohongshu");
 
     expect(afterGenerate).toEqual(before);
+  });
+
+  it("archives a generated platform package in memory", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(projectId);
+    await repository.generatePlatformPackage(projectId, "xiaohongshu");
+    const afterArchive = await repository.archiveProject(projectId);
+
+    expect(afterArchive.archiveRecords).toHaveLength(1);
+    expect(afterArchive.knowledgeItems).toHaveLength(1);
+    expect(afterArchive.projects.find((project) => project.id === projectId)?.status).toBe("archived");
+    expect(afterArchive.selectedProjectId).toBe(projectId);
+  });
+
+  it("replaces archive records and knowledge items when archiving the same project twice", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(projectId);
+    await repository.generatePlatformPackage(projectId, "xiaohongshu");
+    const afterFirstArchive = await repository.archiveProject(projectId);
+    const afterSecondArchive = await repository.archiveProject(projectId);
+
+    expect(afterSecondArchive.archiveRecords).toHaveLength(1);
+    expect(afterSecondArchive.knowledgeItems).toHaveLength(1);
+    expect(afterSecondArchive.archiveRecords[0]?.id).toBe(afterFirstArchive.archiveRecords[0]?.id);
+    expect(afterSecondArchive.knowledgeItems[0]?.id).toBe(afterFirstArchive.knowledgeItems[0]?.id);
   });
 });

@@ -31,6 +31,8 @@ describe("SqliteContentLoopRepository", () => {
     expect(firstLoad.projects).toHaveLength(0);
     expect(firstLoad.drafts).toHaveLength(0);
     expect(firstLoad.platformPackages).toHaveLength(0);
+    expect(firstLoad.archiveRecords).toHaveLength(0);
+    expect(firstLoad.knowledgeItems).toHaveLength(0);
     expect(secondLoad).toEqual(firstLoad);
   });
 
@@ -52,7 +54,9 @@ describe("SqliteContentLoopRepository", () => {
         "source_references",
         "content_projects",
         "draft_versions",
-        "platform_packages"
+        "platform_packages",
+        "archive_records",
+        "knowledge_items"
       ])
     );
   });
@@ -206,5 +210,37 @@ describe("SqliteContentLoopRepository", () => {
 
     expect(afterSecondPromote.selectedProjectId).toBe("project_topic-finance-family-dashboard");
     expect(afterReload.selectedProjectId).toBe("project_topic-finance-family-dashboard");
+  });
+
+  it("persists archived projects and knowledge items across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await firstRepository.generateDraftPackage(projectId);
+    await firstRepository.generatePlatformPackage(projectId, "xiaohongshu");
+    const afterArchive = await firstRepository.archiveProject(projectId);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterArchive.archiveRecords).toHaveLength(1);
+    expect(afterArchive.knowledgeItems).toHaveLength(1);
+    expect(afterReload).toEqual(afterArchive);
+  });
+
+  it("does not archive a missing project", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterArchive = await repository.archiveProject("project_missing");
+    repository.close();
+
+    expect(afterArchive).toEqual(before);
   });
 });

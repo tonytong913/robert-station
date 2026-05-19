@@ -1,14 +1,17 @@
 import {
   createContentProjectFromTopic,
   createSampleContentLoopSeed,
+  generateMockArchivePackage,
   generateMockDraftPackage,
   generateMockTopics,
   generateMockXiaohongshuPackage
 } from "@robert-station/core";
 import type {
+  ArchiveRecord,
   ContentColumnSlug,
   ContentProject,
   DraftVersion,
+  KnowledgeItem,
   Platform,
   PlatformPackage,
   SourceReference,
@@ -21,6 +24,8 @@ export interface PersistedContentLoopState {
   projects: ContentProject[];
   drafts: DraftVersion[];
   platformPackages: PlatformPackage[];
+  archiveRecords: ArchiveRecord[];
+  knowledgeItems: KnowledgeItem[];
   selectedProjectId: string | null;
 }
 
@@ -29,6 +34,7 @@ export interface ContentLoopRepository {
   generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState>;
   generateDraftPackage(projectId: string): Promise<PersistedContentLoopState>;
   generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState>;
+  archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
 
@@ -48,6 +54,8 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       projects: [],
       drafts: [],
       platformPackages: [],
+      archiveRecords: [],
+      knowledgeItems: [],
       selectedProjectId: null
     });
   }
@@ -137,6 +145,60 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       platformPackages: [
         platformPackage,
         ...this.state.platformPackages.filter((candidate) => candidate.id !== platformPackage.id)
+      ],
+      selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
+  async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
+    const project = this.state.projects.find((candidate) => candidate.id === projectId);
+
+    if (!project) {
+      return cloneState(this.state);
+    }
+
+    const topic = project.sourceTopicId
+      ? this.state.topics.find((candidate) => candidate.id === project.sourceTopicId) ?? null
+      : null;
+    const draft =
+      this.state.drafts
+        .filter((candidate) => candidate.contentProjectId === project.id)
+        .sort((left, right) => right.version - left.version || right.updatedAt.localeCompare(left.updatedAt))[0] ??
+      null;
+    const platformPackage =
+      this.state.platformPackages
+        .filter((candidate) => candidate.contentProjectId === project.id)
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id))[0] ??
+      null;
+    const sourceReferences = this.state.sourceReferences.filter(
+      (source) => source.topicId === project.sourceTopicId || source.contentProjectId === project.id
+    );
+    const archivePackage = generateMockArchivePackage({
+      project,
+      topic,
+      draft,
+      platformPackage,
+      sourceReferences,
+      now: new Date()
+    });
+    const archivedProject: ContentProject = {
+      ...project,
+      status: "archived",
+      updatedAt: archivePackage.archiveRecord.updatedAt
+    };
+
+    this.state = {
+      ...this.state,
+      projects: this.state.projects.map((candidate) => (candidate.id === project.id ? archivedProject : candidate)),
+      archiveRecords: [
+        archivePackage.archiveRecord,
+        ...this.state.archiveRecords.filter((candidate) => candidate.id !== archivePackage.archiveRecord.id)
+      ],
+      knowledgeItems: [
+        archivePackage.knowledgeItem,
+        ...this.state.knowledgeItems.filter((candidate) => candidate.id !== archivePackage.knowledgeItem.id)
       ],
       selectedProjectId: project.id
     };

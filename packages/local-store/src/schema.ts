@@ -121,6 +121,39 @@ CREATE TABLE IF NOT EXISTS platform_packages (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS archive_records (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  draft_version_id TEXT REFERENCES draft_versions(id),
+  platform_package_id TEXT REFERENCES platform_packages(id),
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  source_count INTEGER NOT NULL DEFAULT 0,
+  package_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'archived',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_items (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  archive_record_id TEXT NOT NULL REFERENCES archive_records(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  column_slug TEXT NOT NULL,
+  title TEXT NOT NULL,
+  lesson TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS assets (
   id TEXT PRIMARY KEY,
   remote_id TEXT,
