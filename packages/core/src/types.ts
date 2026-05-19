@@ -155,6 +155,52 @@ export interface ManualPublishInput {
   note?: string;
 }
 
+export interface MetricValues {
+  views: number;
+  likes: number;
+  favorites: number;
+  comments: number;
+  shares: number;
+}
+
+export interface MetricSnapshot extends MetricValues {
+  id: EntityId;
+  workspaceId: EntityId;
+  contentProjectId: EntityId;
+  publishRecordId: EntityId;
+  platform: Platform;
+  sourceFileName: string;
+  snapshotAt: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MetricCsvImportInput {
+  sourceFileName: string;
+  csvText: string;
+}
+
+export interface MetricImportPreview {
+  id: EntityId;
+  sourceFileName: string;
+  rows: MetricImportPreviewRow[];
+  createdAt: string;
+}
+
+export interface MetricImportPreviewRow {
+  rowNumber: number;
+  status: "matched" | "invalid";
+  publishRecordId?: EntityId;
+  url: string;
+  platform: Platform;
+  publishedAt: string;
+  snapshotAt: string;
+  metrics: MetricValues;
+  note: string;
+  error?: string;
+}
+
 export interface ArchiveRecord {
   id: EntityId;
   workspaceId: EntityId;
