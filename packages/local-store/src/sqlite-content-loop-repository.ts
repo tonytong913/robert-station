@@ -77,12 +77,23 @@ interface DraftVersionRow {
 }
 
 export class SqliteContentLoopRepository implements ContentLoopRepository {
-  private constructor(private readonly database: DatabaseSync) {
-    this.initialize();
-  }
+  private constructor(private readonly database: DatabaseSync) {}
 
   static open(options: SqliteContentLoopRepositoryOptions): SqliteContentLoopRepository {
-    return new SqliteContentLoopRepository(new DatabaseSync(options.databasePath));
+    const database = new DatabaseSync(options.databasePath);
+
+    try {
+      const repository = new SqliteContentLoopRepository(database);
+      repository.initialize();
+      return repository;
+    } catch (error) {
+      try {
+        database.close();
+      } catch {
+        // Preserve the initialization failure.
+      }
+      throw error;
+    }
   }
 
   async loadContentLoop(): Promise<PersistedContentLoopState> {
@@ -98,16 +109,11 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
 
     const result = createContentProjectFromTopic(topic, `column_${topic.columnSlug}`, this.createPromotionDate());
 
-    try {
-      this.database.exec("BEGIN;");
+    this.runTransaction(() => {
       this.upsertTopic(result.updatedTopic);
       this.upsertContentProject(result.project);
       this.upsertDraftVersion(result.draft);
-      this.database.exec("COMMIT;");
-    } catch (error) {
-      this.database.exec("ROLLBACK;");
-      throw error;
-    }
+    });
 
     return this.loadState();
   }
@@ -133,9 +139,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const workspaceSeed = createDefaultWorkspaceSeed(WORKSPACE_NAME);
     const contentLoopSeed = createSampleContentLoopSeed(WORKSPACE_ID);
 
-    this.database.exec("BEGIN;");
-
-    try {
+    this.runTransaction(() => {
       this.database
         .prepare(
           `INSERT OR IGNORE INTO workspaces (id, name, created_at, updated_at)
@@ -172,12 +176,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       for (const sourceReference of contentLoopSeed.sourceReferences) {
         this.upsertSourceReference(sourceReference);
       }
-
-      this.database.exec("COMMIT;");
-    } catch (error) {
-      this.database.exec("ROLLBACK;");
-      throw error;
-    }
+    });
   }
 
   private loadState(): PersistedContentLoopState {
@@ -209,6 +208,35 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   private getTopic(topicId: string): Topic | null {
     const row = this.database.prepare("SELECT * FROM topics WHERE id = ?;").get(topicId) as TopicRow | undefined;
     return row ? mapTopicRow(row) : null;
+  }
+
+  private runTransaction(work: () => void): void {
+    let beginSucceeded = false;
+
+    try {
+      this.database.exec("BEGIN;");
+      beginSucceeded = true;
+      work();
+      this.database.exec("COMMIT;");
+    } catch (error) {
+      this.rollbackIfActive(beginSucceeded);
+      throw error;
+    }
+  }
+
+  private rollbackIfActive(beginSucceeded: boolean): void {
+    if (!beginSucceeded) {
+      return;
+    }
+
+    try {
+      const isTransactionActive = "isTransaction" in this.database ? this.database.isTransaction : beginSucceeded;
+      if (isTransactionActive) {
+        this.database.exec("ROLLBACK;");
+      }
+    } catch {
+      // Preserve the original transaction failure.
+    }
   }
 
   private createPromotionDate(): Date {
