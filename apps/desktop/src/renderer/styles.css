@@ -281,6 +281,7 @@ button {
 }
 
 .creation-studio {
+  align-items: start;
   display: grid;
   gap: 16px;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -313,6 +314,31 @@ button {
 .source-panel h3 {
   font-size: 15px;
   margin: 0 0 6px;
+}
+
+.publish-package-panel {
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-column: 1 / -1;
+  padding: 18px;
+}
+
+.publish-package-panel h2,
+.publish-package-panel h3 {
+  margin: 0;
+}
+
+.publish-package-panel p,
+.publish-package-panel ul {
+  color: #435064;
+  margin: 0;
+}
+
+.publish-package-panel ul {
+  padding-left: 18px;
 }
 
 .empty-state {

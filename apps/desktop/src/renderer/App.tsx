@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   generatePersistedDraftPackage,
+  generatePersistedPlatformPackage,
   generatePersistedTopics,
   loadPersistedContentLoop,
   promotePersistedTopic
@@ -23,6 +24,8 @@ export function App(): ReactElement {
   const [topicGenerationError, setTopicGenerationError] = useState<string | null>(null);
   const [isGeneratingDraftPackage, setIsGeneratingDraftPackage] = useState(false);
   const [draftPackageError, setDraftPackageError] = useState<string | null>(null);
+  const [isGeneratingPlatformPackage, setIsGeneratingPlatformPackage] = useState(false);
+  const [platformPackageError, setPlatformPackageError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -102,6 +105,30 @@ export function App(): ReactElement {
     }
   }
 
+  async function handleGeneratePlatformPackage(projectId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsGeneratingPlatformPackage(true);
+    setPlatformPackageError(null);
+
+    try {
+      const nextState = await generatePersistedPlatformPackage(projectId, "xiaohongshu");
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setPlatformPackageError("Could not generate Xiaohongshu package. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsGeneratingPlatformPackage(false);
+      }
+    }
+  }
+
   if (!contentLoop) {
     return (
       <main className="loading-shell">
@@ -113,6 +140,12 @@ export function App(): ReactElement {
   const selectedProject = contentLoop.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
   const selectedDraft = selectedProject
     ? contentLoop.drafts.find((draft) => draft.contentProjectId === selectedProject.id) ?? null
+    : null;
+  const selectedXiaohongshuPackage = selectedProject
+    ? contentLoop.platformPackages.find(
+        (platformPackage) =>
+          platformPackage.contentProjectId === selectedProject.id && platformPackage.platform === "xiaohongshu"
+      ) ?? null
     : null;
   const candidateTopicCount = contentLoop.topics.filter((topic) => topic.status === "candidate").length;
   const activeProjectCount = contentLoop.projects.length;
@@ -270,9 +303,21 @@ export function App(): ReactElement {
                   >
                     {isGeneratingDraftPackage ? "Generating..." : "Generate draft package"}
                   </button>
+                  <button
+                    disabled={isGeneratingPlatformPackage}
+                    onClick={() => void handleGeneratePlatformPackage(selectedProject.id)}
+                    type="button"
+                  >
+                    {isGeneratingPlatformPackage ? "Generating..." : "Generate Xiaohongshu package"}
+                  </button>
                   {draftPackageError ? (
                     <p className="inline-error" role="alert">
                       {draftPackageError}
+                    </p>
+                  ) : null}
+                  {platformPackageError ? (
+                    <p className="inline-error" role="alert">
+                      {platformPackageError}
                     </p>
                   ) : null}
                 </div>
@@ -312,6 +357,49 @@ export function App(): ReactElement {
                       </article>
                     ))}
                 </aside>
+                <section className="publish-package-panel" aria-label="Xiaohongshu Package">
+                  <h2>Xiaohongshu Package</h2>
+                  {selectedXiaohongshuPackage ? (
+                    <>
+                      <section>
+                        <h3>Title</h3>
+                        <p>{selectedXiaohongshuPackage.title}</p>
+                      </section>
+                      <section>
+                        <h3>Body</h3>
+                        <p>{selectedXiaohongshuPackage.body}</p>
+                      </section>
+                      <section>
+                        <h3>Tags</h3>
+                        <p>{selectedXiaohongshuPackage.tags.join(" ")}</p>
+                      </section>
+                      <section>
+                        <h3>Cover text</h3>
+                        <p>{selectedXiaohongshuPackage.coverText}</p>
+                      </section>
+                      <section>
+                        <h3>Required assets</h3>
+                        <ul>
+                          {selectedXiaohongshuPackage.requiredAssets.map((asset) => (
+                            <li key={asset}>{asset}</li>
+                          ))}
+                        </ul>
+                      </section>
+                      <section>
+                        <h3>Checks</h3>
+                        <ul>
+                          {selectedXiaohongshuPackage.checks.map((check) => (
+                            <li key={check.name}>
+                              <strong>{check.status}</strong> {check.name}: {check.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
+                    </>
+                  ) : (
+                    <p className="empty-state">No Xiaohongshu package yet.</p>
+                  )}
+                </section>
               </>
             ) : (
               <p className="empty-state">Select or promote a topic to open the first draft.</p>

@@ -110,4 +110,52 @@ describe("App content loop", () => {
     expect(screen.getByText("Draft v1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate draft package" })).toBeEnabled();
   });
+
+  it("generates and displays a Xiaohongshu package for the selected project", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+
+    expect(await screen.findByRole("heading", { name: "Xiaohongshu Package" })).toBeInTheDocument();
+    expect(screen.getByText("Title")).toBeInTheDocument();
+    expect(screen.getByText("Body")).toBeInTheDocument();
+    expect(screen.getByText("Tags")).toBeInTheDocument();
+    expect(screen.getByText("Cover text")).toBeInTheDocument();
+    expect(screen.getByText("Required assets")).toBeInTheDocument();
+    expect(screen.getByText("Checks")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generatePlatformPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation",
+      "xiaohongshu"
+    );
+  });
+
+  it("shows an inline error and keeps current content when Xiaohongshu package generation fails", async () => {
+    window.robertStation.contentLoop.generatePlatformPackage = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+
+    expect(await screen.findByText("Could not generate Xiaohongshu package. Try again.")).toBeInTheDocument();
+    expect(screen.getByText("Draft v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate Xiaohongshu package" })).toBeEnabled();
+  });
 });
