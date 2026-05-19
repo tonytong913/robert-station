@@ -175,6 +175,56 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterSecondPublish.publishRecords[0]?.url).toBe("https://www.xiaohongshu.com/explore/second");
   });
 
+  it("orders multiple in-memory publish records newest first by publishedAt", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterFirstPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const firstProjectId = afterFirstPromote.selectedProjectId;
+
+    if (!firstProjectId) {
+      throw new Error("Expected first promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(firstProjectId);
+    const afterFirstPackage = await repository.generatePlatformPackage(firstProjectId, "xiaohongshu");
+    const firstPackageId = afterFirstPackage.platformPackages.find(
+      (platformPackage) => platformPackage.contentProjectId === firstProjectId
+    )?.id;
+
+    if (!firstPackageId) {
+      throw new Error("Expected a generated platform package for the first project.");
+    }
+
+    const afterSecondPromote = await repository.promoteTopic("topic_finance-family-dashboard");
+    const secondProjectId = afterSecondPromote.selectedProjectId;
+
+    if (!secondProjectId) {
+      throw new Error("Expected second promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(secondProjectId);
+    const afterSecondPackage = await repository.generatePlatformPackage(secondProjectId, "xiaohongshu");
+    const secondPackageId = afterSecondPackage.platformPackages.find(
+      (platformPackage) => platformPackage.contentProjectId === secondProjectId
+    )?.id;
+
+    if (!secondPackageId) {
+      throw new Error("Expected a generated platform package for the second project.");
+    }
+
+    await repository.recordManualPublish({
+      platformPackageId: firstPackageId,
+      publishedAt: "2026-05-19T17:00:00.000Z"
+    });
+    const afterSecondPublish = await repository.recordManualPublish({
+      platformPackageId: secondPackageId,
+      publishedAt: "2026-05-19T15:00:00.000Z"
+    });
+
+    expect(afterSecondPublish.publishRecords).toHaveLength(2);
+    expect(afterSecondPublish.publishRecords[0]?.publishedAt).toBe("2026-05-19T17:00:00.000Z");
+    expect(afterSecondPublish.publishRecords[1]?.publishedAt).toBe("2026-05-19T15:00:00.000Z");
+  });
+
   it("archives a generated platform package in memory", async () => {
     const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
     const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");

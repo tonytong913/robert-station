@@ -30,6 +30,7 @@ export function App(): ReactElement {
   const [platformPackageError, setPlatformPackageError] = useState<string | null>(null);
   const [isArchivingProject, setIsArchivingProject] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [publishTime, setPublishTime] = useState(() => formatDatetimeLocalValue(new Date()));
   const [publishUrl, setPublishUrl] = useState("");
   const [publishNote, setPublishNote] = useState("");
   const [isSavingPublishRecord, setIsSavingPublishRecord] = useState(false);
@@ -78,6 +79,7 @@ export function App(): ReactElement {
       ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
       : null;
   const selectedXiaohongshuPackageId = selectedXiaohongshuPackage?.id ?? null;
+  const selectedPublishRecordPublishedAt = selectedPublishRecord?.publishedAt ?? "";
   const selectedPublishRecordUrl = selectedPublishRecord?.url ?? "";
   const selectedPublishRecordNote = selectedPublishRecord?.note ?? "";
   const candidateTopicCount = contentLoop?.topics.filter((topic) => topic.status === "candidate").length ?? 0;
@@ -85,14 +87,23 @@ export function App(): ReactElement {
 
   useLayoutEffect(() => {
     if (!selectedXiaohongshuPackageId) {
+      setPublishTime(formatDatetimeLocalValue(new Date()));
       setPublishUrl("");
       setPublishNote("");
       return;
     }
 
+    setPublishTime(
+      selectedPublishRecordPublishedAt ? toDatetimeLocalValue(selectedPublishRecordPublishedAt) : formatDatetimeLocalValue(new Date())
+    );
     setPublishUrl(selectedPublishRecordUrl);
     setPublishNote(selectedPublishRecordNote);
-  }, [selectedXiaohongshuPackageId, selectedPublishRecordNote, selectedPublishRecordUrl]);
+  }, [
+    selectedPublishRecordNote,
+    selectedPublishRecordPublishedAt,
+    selectedPublishRecordUrl,
+    selectedXiaohongshuPackageId
+  ]);
 
   async function handlePromote(topicId: string): Promise<void> {
     const nextState = await promotePersistedTopic(topicId);
@@ -209,7 +220,7 @@ export function App(): ReactElement {
     try {
       const nextState = await recordPersistedManualPublish({
         platformPackageId,
-        publishedAt: new Date().toISOString(),
+        publishedAt: toPublishTimestamp(publishTime),
         url: publishUrl,
         note: publishNote
       });
@@ -495,6 +506,15 @@ export function App(): ReactElement {
                       <section className="manual-publish-panel" aria-label="Manual publish record">
                         <h3>Manual publish</h3>
                         <label>
+                          <span>Published at</span>
+                          <input
+                            aria-label="Published at"
+                            onChange={(event) => setPublishTime(event.target.value)}
+                            type="datetime-local"
+                            value={publishTime}
+                          />
+                        </label>
+                        <label>
                           <span>Publish URL</span>
                           <input
                             aria-label="Publish URL"
@@ -576,4 +596,34 @@ export function App(): ReactElement {
       </section>
     </main>
   );
+}
+
+function formatDatetimeLocalValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toDatetimeLocalValue(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return formatDatetimeLocalValue(new Date());
+  }
+
+  return formatDatetimeLocalValue(date);
+}
+
+function toPublishTimestamp(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString();
+  }
+
+  return date.toISOString();
 }

@@ -186,7 +186,7 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       publishRecords: [
         persistedPublishRecord,
         ...this.state.publishRecords.filter((candidate) => candidate.id !== persistedPublishRecord.id)
-      ],
+      ].sort(comparePublishRecords),
       selectedProjectId: platformPackage.contentProjectId
     };
 
@@ -278,4 +278,12 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
 
 function cloneState(state: PersistedContentLoopState): PersistedContentLoopState {
   return structuredClone(state);
+}
+
+function comparePublishRecords(left: PublishRecord, right: PublishRecord): number {
+  return (
+    right.publishedAt.localeCompare(left.publishedAt) ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    left.id.localeCompare(right.id)
+  );
 }

@@ -172,6 +172,9 @@ describe("App content loop", () => {
     await screen.findByRole("heading", { name: "Creation Studio" });
     fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
     await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+    fireEvent.change(screen.getByLabelText("Published at"), {
+      target: { value: "2026-05-19T15:30" }
+    });
     fireEvent.change(screen.getByLabelText("Publish URL"), {
       target: { value: "https://www.xiaohongshu.com/explore/demo" }
     });
@@ -186,6 +189,7 @@ describe("App content loop", () => {
     expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith(
       expect.objectContaining({
         platformPackageId: expect.stringContaining("xiaohongshu"),
+        publishedAt: expect.stringContaining("2026-05-19"),
         url: "https://www.xiaohongshu.com/explore/demo",
         note: "Published manually after final review."
       })
@@ -205,6 +209,9 @@ describe("App content loop", () => {
     await screen.findByRole("heading", { name: "Creation Studio" });
     fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
     await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+    fireEvent.change(screen.getByLabelText("Published at"), {
+      target: { value: "2026-05-19T08:45" }
+    });
     fireEvent.change(screen.getByLabelText("Publish URL"), {
       target: { value: "https://www.xiaohongshu.com/explore/unsaved" }
     });
@@ -222,6 +229,7 @@ describe("App content loop", () => {
     fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
     await screen.findByRole("heading", { name: "Xiaohongshu Package" });
 
+    expect(screen.getByLabelText("Published at")).not.toHaveValue("2026-05-19T08:45");
     expect(screen.getByLabelText("Publish URL")).toHaveValue("");
     expect(screen.getByLabelText("Publish note")).toHaveValue("");
   });
