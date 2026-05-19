@@ -12,6 +12,7 @@ beforeEach(() => {
     contentLoop: {
       load: vi.fn(async () => repository.loadContentLoop()),
       generateTopics: vi.fn(async (columnSlug: ContentColumnSlug) => repository.generateTopics(columnSlug)),
+      generateDraftPackage: vi.fn(async (projectId: string) => repository.generateDraftPackage(projectId)),
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };

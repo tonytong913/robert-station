@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { DEFAULT_COLUMNS, type ContentColumnSlug } from "@robert-station/core";
 import type { ContentLoopRepository } from "@robert-station/local-store";
 import {
+  CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
   CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL
@@ -17,6 +18,13 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
     }
 
     return repository.generateTopics(columnSlug);
+  });
+  ipcMain.handle(CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL, async (_event, projectId: unknown) => {
+    if (typeof projectId !== "string" || projectId.length === 0) {
+      throw new Error("Invalid content project id.");
+    }
+
+    return repository.generateDraftPackage(projectId);
   });
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)

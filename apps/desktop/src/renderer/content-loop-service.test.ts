@@ -41,6 +41,7 @@ function createRepository(): ContentLoopRepository {
   return {
     loadContentLoop: vi.fn(async () => emptyState),
     generateTopics: vi.fn(async () => emptyState),
+    generateDraftPackage: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }

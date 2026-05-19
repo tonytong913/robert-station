@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { generatePersistedTopics, loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
+import {
+  generatePersistedDraftPackage,
+  generatePersistedTopics,
+  loadPersistedContentLoop,
+  promotePersistedTopic
+} from "./content-loop-loader";
 
 describe("content loop loader", () => {
   it("loads content loop state from preload API", async () => {
@@ -19,5 +24,13 @@ describe("content loop loader", () => {
     await generatePersistedTopics("ai");
 
     expect(window.robertStation.contentLoop.generateTopics).toHaveBeenCalledWith("ai");
+  });
+
+  it("generates draft packages through preload API", async () => {
+    await generatePersistedDraftPackage("project_topic-ai-local-workstation");
+
+    expect(window.robertStation.contentLoop.generateDraftPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
   });
 });

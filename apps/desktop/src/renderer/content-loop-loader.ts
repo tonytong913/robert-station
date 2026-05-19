@@ -12,3 +12,7 @@ export async function promotePersistedTopic(topicId: string): Promise<PersistedC
 export async function generatePersistedTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.generateTopics(columnSlug);
 }
+
+export async function generatePersistedDraftPackage(projectId: string): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.generateDraftPackage(projectId);
+}

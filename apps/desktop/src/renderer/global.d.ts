@@ -8,6 +8,7 @@ declare global {
       contentLoop: {
         load: () => Promise<PersistedContentLoopState>;
         generateTopics: (columnSlug: ContentColumnSlug) => Promise<PersistedContentLoopState>;
+        generateDraftPackage: (projectId: string) => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
       };
     };
