@@ -14,6 +14,14 @@ body {
   margin: 0;
 }
 
+.loading-shell {
+  align-items: center;
+  color: #64748b;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
 button {
   border: 1px solid #0f766e;
   border-radius: 6px;

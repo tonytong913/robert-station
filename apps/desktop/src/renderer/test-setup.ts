@@ -1,28 +1,16 @@
 import "@testing-library/jest-dom/vitest";
-import { createSampleContentLoopSeed } from "@robert-station/core";
+import { InMemoryContentLoopRepository } from "@robert-station/local-store";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 
-function createMockState() {
-  const seed = createSampleContentLoopSeed("workspace_robert-station");
-
-  return {
-    topics: seed.topics,
-    sourceReferences: seed.sourceReferences,
-    projects: [],
-    drafts: [],
-    selectedProjectId: null
-  };
-}
-
 beforeEach(() => {
-  const state = createMockState();
+  const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
 
   window.robertStation = {
     appName: "Robert Station",
     contentLoop: {
-      load: vi.fn(async () => state),
-      promoteTopic: vi.fn(async () => state)
+      load: vi.fn(async () => repository.loadContentLoop()),
+      promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };
 });

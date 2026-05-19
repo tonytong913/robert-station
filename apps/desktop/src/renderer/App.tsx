@@ -1,7 +1,8 @@
 import { DEFAULT_COLUMNS } from "@robert-station/core";
+import type { PersistedContentLoopState } from "@robert-station/local-store";
 import type { ReactElement } from "react";
-import { useMemo, useState } from "react";
-import { initializeContentLoopState, promoteTopicToProject } from "./content-loop";
+import { useEffect, useMemo, useState } from "react";
+import { loadPersistedContentLoop, promotePersistedTopic } from "./content-loop-loader";
 
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"] as const;
 
@@ -9,15 +10,21 @@ type Screen = (typeof workflowStages)[number];
 
 export function App(): ReactElement {
   const [screen, setScreen] = useState<Screen>("Dashboard");
-  const [contentLoop, setContentLoop] = useState(() => initializeContentLoopState());
+  const [contentLoop, setContentLoop] = useState<PersistedContentLoopState | null>(null);
 
-  const selectedProject = contentLoop.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
-  const selectedDraft = selectedProject
-    ? contentLoop.drafts.find((draft) => draft.contentProjectId === selectedProject.id) ?? null
-    : null;
+  useEffect(() => {
+    let cancelled = false;
 
-  const candidateTopicCount = contentLoop.topics.filter((topic) => topic.status === "candidate").length;
-  const activeProjectCount = contentLoop.projects.length;
+    void loadPersistedContentLoop().then((state) => {
+      if (!cancelled) {
+        setContentLoop(state);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const screenTitle = useMemo(() => {
     if (screen === "Dashboard") {
@@ -27,10 +34,26 @@ export function App(): ReactElement {
     return screen;
   }, [screen]);
 
-  function handlePromote(topicId: string): void {
-    setContentLoop((current) => promoteTopicToProject(current, topicId));
+  async function handlePromote(topicId: string): Promise<void> {
+    const nextState = await promotePersistedTopic(topicId);
+    setContentLoop(nextState);
     setScreen("Creation Studio");
   }
+
+  if (!contentLoop) {
+    return (
+      <main className="loading-shell">
+        <p>Loading content loop...</p>
+      </main>
+    );
+  }
+
+  const selectedProject = contentLoop.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
+  const selectedDraft = selectedProject
+    ? contentLoop.drafts.find((draft) => draft.contentProjectId === selectedProject.id) ?? null
+    : null;
+  const candidateTopicCount = contentLoop.topics.filter((topic) => topic.status === "candidate").length;
+  const activeProjectCount = contentLoop.projects.length;
 
   return (
     <main className="app-shell">
@@ -116,7 +139,7 @@ export function App(): ReactElement {
                     <dd>{topic.score.difficulty}</dd>
                   </div>
                 </dl>
-                <button disabled={topic.status === "promoted"} onClick={() => handlePromote(topic.id)} type="button">
+                <button disabled={topic.status === "promoted"} onClick={() => void handlePromote(topic.id)} type="button">
                   {topic.status === "promoted" ? "Promoted" : "Promote to project"}
                 </button>
               </article>
@@ -134,7 +157,7 @@ export function App(): ReactElement {
                   className="project-row"
                   key={project.id}
                   onClick={() => {
-                    setContentLoop((current) => ({ ...current, selectedProjectId: project.id }));
+                    setContentLoop((current) => (current ? { ...current, selectedProjectId: project.id } : current));
                     setScreen("Creation Studio");
                   }}
                   type="button"
