@@ -121,6 +121,22 @@ CREATE TABLE IF NOT EXISTS platform_packages (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS publish_records (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  platform_package_id TEXT NOT NULL REFERENCES platform_packages(id),
+  platform TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'published',
+  published_at TEXT NOT NULL,
+  url TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS archive_records (
   id TEXT PRIMARY KEY,
   remote_id TEXT,

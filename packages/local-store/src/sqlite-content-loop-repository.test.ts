@@ -31,6 +31,7 @@ describe("SqliteContentLoopRepository", () => {
     expect(firstLoad.projects).toHaveLength(0);
     expect(firstLoad.drafts).toHaveLength(0);
     expect(firstLoad.platformPackages).toHaveLength(0);
+    expect(firstLoad.publishRecords).toHaveLength(0);
     expect(firstLoad.archiveRecords).toHaveLength(0);
     expect(firstLoad.knowledgeItems).toHaveLength(0);
     expect(secondLoad).toEqual(firstLoad);
@@ -55,6 +56,7 @@ describe("SqliteContentLoopRepository", () => {
         "content_projects",
         "draft_versions",
         "platform_packages",
+        "publish_records",
         "archive_records",
         "knowledge_items"
       ])
@@ -166,6 +168,50 @@ describe("SqliteContentLoopRepository", () => {
     repository.close();
 
     expect(afterMissingProject).toEqual(before);
+  });
+
+  it("persists manual publish records across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await firstRepository.generateDraftPackage(projectId);
+    const afterPackage = await firstRepository.generatePlatformPackage(projectId, "xiaohongshu");
+    const packageId = afterPackage.platformPackages[0]?.id;
+
+    if (!packageId) {
+      throw new Error("Expected a generated platform package.");
+    }
+
+    const afterPublish = await firstRepository.recordManualPublish({
+      platformPackageId: packageId,
+      publishedAt: "2026-05-19T15:00:00.000Z",
+      url: "https://www.xiaohongshu.com/explore/demo"
+    });
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterPublish.publishRecords).toHaveLength(1);
+    expect(afterReload).toEqual(afterPublish);
+  });
+
+  it("does not insert a manual publish record for a missing package", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterPublish = await repository.recordManualPublish({
+      platformPackageId: "platform-package_missing",
+      publishedAt: "2026-05-19T15:00:00.000Z"
+    });
+    repository.close();
+
+    expect(afterPublish).toEqual(before);
   });
 
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {

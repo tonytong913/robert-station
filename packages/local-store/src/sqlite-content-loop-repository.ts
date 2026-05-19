@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
   createContentProjectFromTopic,
   createDefaultWorkspaceSeed,
+  createManualPublishRecord,
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
@@ -15,9 +16,11 @@ import type {
   ContentProjectStatus,
   DraftVersion,
   KnowledgeItem,
+  ManualPublishInput,
   Platform,
   PlatformPackage,
   PlatformPackageCheck,
+  PublishRecord,
   SourceReference,
   SourceReferenceKind,
   Topic,
@@ -96,6 +99,20 @@ interface PlatformPackageRow {
   cover_text: string;
   required_assets_json: string;
   checks_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PublishRecordRow {
+  id: string;
+  workspace_id: string;
+  content_project_id: string;
+  platform_package_id: string;
+  platform: string;
+  status: string;
+  published_at: string;
+  url: string;
+  note: string;
   created_at: string;
   updated_at: string;
 }
@@ -216,6 +233,33 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     });
 
     return this.loadState(project.id);
+  }
+
+  async recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState> {
+    const platformPackage = this.getPlatformPackage(input.platformPackageId);
+
+    if (!platformPackage) {
+      return this.loadState();
+    }
+
+    const publishRecord = createManualPublishRecord({
+      platformPackage,
+      input,
+      now: this.createPromotionDate()
+    });
+    const project = this.getContentProject(platformPackage.contentProjectId);
+    const publishedProject: ContentProject | null = project
+      ? { ...project, status: "published", updatedAt: publishRecord.updatedAt }
+      : null;
+
+    this.runTransaction(() => {
+      if (publishedProject) {
+        this.upsertContentProject(publishedProject);
+      }
+      this.upsertPublishRecord(publishRecord);
+    });
+
+    return this.loadState(platformPackage.contentProjectId);
   }
 
   async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
@@ -347,6 +391,9 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const platformPackages = this.database
       .prepare("SELECT * FROM platform_packages ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as PlatformPackageRow[];
+    const publishRecords = this.database
+      .prepare("SELECT * FROM publish_records ORDER BY published_at DESC, updated_at DESC, id ASC;")
+      .all() as unknown as PublishRecordRow[];
     const archiveRecords = this.database
       .prepare("SELECT * FROM archive_records ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as ArchiveRecordRow[];
@@ -365,6 +412,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       projects: projects.map(mapContentProjectRow),
       drafts: drafts.map(mapDraftVersionRow),
       platformPackages: platformPackages.map(mapPlatformPackageRow),
+      publishRecords: publishRecords.map(mapPublishRecordRow),
       archiveRecords: archiveRecords.map(mapArchiveRecordRow),
       knowledgeItems: knowledgeItems.map(mapKnowledgeItemRow),
       selectedProjectId: selectedProject?.id ?? null
@@ -381,6 +429,14 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       .prepare("SELECT * FROM content_projects WHERE id = ?;")
       .get(projectId) as ContentProjectRow | undefined;
     return row ? mapContentProjectRow(row) : null;
+  }
+
+  private getPlatformPackage(packageId: string): PlatformPackage | null {
+    const row = this.database
+      .prepare("SELECT * FROM platform_packages WHERE id = ?;")
+      .get(packageId) as PlatformPackageRow | undefined;
+
+    return row ? mapPlatformPackageRow(row) : null;
   }
 
   private getSourceReferencesForProject(project: ContentProject): SourceReference[] {
@@ -470,6 +526,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            SELECT updated_at FROM draft_versions
            UNION ALL
            SELECT updated_at FROM platform_packages
+           UNION ALL
+           SELECT updated_at FROM publish_records
            UNION ALL
            SELECT updated_at FROM archive_records
            UNION ALL
@@ -688,6 +746,40 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       );
   }
 
+  private upsertPublishRecord(publishRecord: PublishRecord): void {
+    this.database
+      .prepare(
+        `INSERT INTO publish_records (
+          id, workspace_id, content_project_id, platform_package_id, platform, status,
+          published_at, url, note, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          content_project_id = excluded.content_project_id,
+          platform_package_id = excluded.platform_package_id,
+          platform = excluded.platform,
+          status = excluded.status,
+          published_at = excluded.published_at,
+          url = excluded.url,
+          note = excluded.note,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        publishRecord.id,
+        publishRecord.workspaceId,
+        publishRecord.contentProjectId,
+        publishRecord.platformPackageId,
+        publishRecord.platform,
+        publishRecord.status,
+        publishRecord.publishedAt,
+        publishRecord.url,
+        publishRecord.note,
+        publishRecord.createdAt,
+        publishRecord.updatedAt
+      );
+  }
+
   private upsertArchiveRecord(archiveRecord: ArchiveRecord): void {
     this.database
       .prepare(
@@ -830,6 +922,22 @@ function mapPlatformPackageRow(row: PlatformPackageRow): PlatformPackage {
     coverText: row.cover_text,
     requiredAssets: JSON.parse(row.required_assets_json) as string[],
     checks: JSON.parse(row.checks_json) as PlatformPackageCheck[],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapPublishRecordRow(row: PublishRecordRow): PublishRecord {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    contentProjectId: row.content_project_id,
+    platformPackageId: row.platform_package_id,
+    platform: row.platform as Platform,
+    status: row.status as PublishRecord["status"],
+    publishedAt: row.published_at,
+    url: row.url,
+    note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

@@ -13,6 +13,7 @@ describe("SQLite schema", () => {
       "draft_versions",
       "source_references",
       "platform_packages",
+      "publish_records",
       "archive_records",
       "knowledge_items",
       "assets"

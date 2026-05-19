@@ -1,5 +1,6 @@
 import {
   createContentProjectFromTopic,
+  createManualPublishRecord,
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
@@ -12,8 +13,10 @@ import type {
   ContentProject,
   DraftVersion,
   KnowledgeItem,
+  ManualPublishInput,
   Platform,
   PlatformPackage,
+  PublishRecord,
   SourceReference,
   Topic
 } from "@robert-station/core";
@@ -24,6 +27,7 @@ export interface PersistedContentLoopState {
   projects: ContentProject[];
   drafts: DraftVersion[];
   platformPackages: PlatformPackage[];
+  publishRecords: PublishRecord[];
   archiveRecords: ArchiveRecord[];
   knowledgeItems: KnowledgeItem[];
   selectedProjectId: string | null;
@@ -34,6 +38,7 @@ export interface ContentLoopRepository {
   generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState>;
   generateDraftPackage(projectId: string): Promise<PersistedContentLoopState>;
   generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState>;
+  recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
@@ -54,6 +59,7 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       projects: [],
       drafts: [],
       platformPackages: [],
+      publishRecords: [],
       archiveRecords: [],
       knowledgeItems: [],
       selectedProjectId: null
@@ -147,6 +153,41 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
         ...this.state.platformPackages.filter((candidate) => candidate.id !== platformPackage.id)
       ],
       selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
+  async recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState> {
+    const platformPackage = this.state.platformPackages.find((candidate) => candidate.id === input.platformPackageId);
+
+    if (!platformPackage) {
+      return cloneState(this.state);
+    }
+
+    const publishRecord = createManualPublishRecord({
+      platformPackage,
+      input,
+      now: new Date()
+    });
+    const existing = this.state.publishRecords.find((candidate) => candidate.id === publishRecord.id);
+    const persistedPublishRecord = {
+      ...publishRecord,
+      createdAt: existing?.createdAt ?? publishRecord.createdAt
+    };
+
+    this.state = {
+      ...this.state,
+      projects: this.state.projects.map((project) =>
+        project.id === platformPackage.contentProjectId
+          ? { ...project, status: "published", updatedAt: persistedPublishRecord.updatedAt }
+          : project
+      ),
+      publishRecords: [
+        persistedPublishRecord,
+        ...this.state.publishRecords.filter((candidate) => candidate.id !== persistedPublishRecord.id)
+      ],
+      selectedProjectId: platformPackage.contentProjectId
     };
 
     return cloneState(this.state);
