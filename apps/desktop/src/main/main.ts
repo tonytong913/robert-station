@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from "electron";
+import { SqliteContentLoopRepository } from "@robert-station/local-store";
 import path from "node:path";
 import { registerContentLoopIpc } from "./content-loop-service";
 
@@ -24,8 +25,16 @@ function createMainWindow(): void {
 }
 
 void app.whenReady().then(() => {
-  registerContentLoopIpc();
+  const repository = SqliteContentLoopRepository.open({
+    databasePath: path.join(app.getPath("userData"), "robert-station.sqlite")
+  });
+
+  registerContentLoopIpc(repository);
   createMainWindow();
+
+  app.on("before-quit", () => {
+    repository.close();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
