@@ -394,6 +394,28 @@ describe("SqliteContentLoopRepository", () => {
     });
   });
 
+  it("uses metric snapshotAt as a SQLite clock source for later generated records", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+
+    await publishXiaohongshuDemo(repository);
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText:
+        "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+        "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,100,10,8,3,2,2030-01-01T00:00:00.000Z,future snapshot"
+    });
+    await repository.saveMetricImport();
+    const afterGenerate = await repository.generateTopics("parenting");
+    repository.close();
+
+    const generatedTopic = afterGenerate.topics.find((topic) => topic.id === "topic_parenting_mock-homework-reset");
+
+    expect(generatedTopic).toBeDefined();
+    expect(new Date(generatedTopic?.updatedAt ?? 0).getTime()).toBeGreaterThan(
+      new Date("2030-01-01T00:00:00.000Z").getTime()
+    );
+  });
+
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
 

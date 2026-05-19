@@ -597,6 +597,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            UNION ALL
            SELECT updated_at FROM publish_records
            UNION ALL
+           SELECT snapshot_at AS updated_at FROM metric_snapshots
+           UNION ALL
            SELECT updated_at FROM metric_snapshots
            UNION ALL
            SELECT updated_at FROM archive_records
