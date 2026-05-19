@@ -53,16 +53,25 @@ button {
   gap: 8px;
 }
 
-.sidebar a {
+.sidebar a,
+.nav-button {
   border-radius: 6px;
   color: #cbd5e1;
   padding: 10px 12px;
   text-decoration: none;
 }
 
-.sidebar a:hover {
+.sidebar a:hover,
+.nav-button:hover,
+.nav-button--active {
   background: #1f2937;
   color: #ffffff;
+}
+
+.nav-button {
+  background: transparent;
+  border: 0;
+  text-align: left;
 }
 
 .dashboard {
@@ -149,4 +158,108 @@ button {
   font-size: 18px;
   font-weight: 700;
   margin: 2px 0 0;
+}
+
+.metric-strip {
+  display: flex;
+  gap: 10px;
+}
+
+.metric-strip span,
+.topic-card__meta span {
+  background: #e6f4f1;
+  border-radius: 6px;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 10px;
+}
+
+.topic-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.topic-card,
+.draft-panel,
+.source-panel,
+.project-row {
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.topic-card__meta {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.topic-card h2,
+.draft-panel h2,
+.source-panel h2 {
+  font-size: 20px;
+  margin: 16px 0 8px;
+}
+
+.score-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 18px 0;
+}
+
+.score-grid div {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.score-grid dt {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.score-grid dd {
+  font-weight: 700;
+  margin: 2px 0 0;
+}
+
+.project-list {
+  display: grid;
+  gap: 10px;
+}
+
+.project-row {
+  align-items: center;
+  color: #172026;
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+}
+
+.creation-studio {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.source-panel article {
+  border-top: 1px solid #dbe3ea;
+  padding-top: 12px;
+}
+
+.source-panel h3 {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.empty-state {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  padding: 24px;
 }
