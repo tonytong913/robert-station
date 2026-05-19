@@ -3,6 +3,8 @@ import {
   createContentProjectFromTopic,
   createDefaultWorkspaceSeed,
   createManualPublishRecord,
+  createMetricImportPreview,
+  createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
@@ -17,6 +19,9 @@ import type {
   DraftVersion,
   KnowledgeItem,
   ManualPublishInput,
+  MetricCsvImportInput,
+  MetricImportPreview,
+  MetricSnapshot,
   Platform,
   PlatformPackage,
   PlatformPackageCheck,
@@ -117,6 +122,24 @@ interface PublishRecordRow {
   updated_at: string;
 }
 
+interface MetricSnapshotRow {
+  id: string;
+  workspace_id: string;
+  content_project_id: string;
+  publish_record_id: string;
+  platform: string;
+  source_file_name: string;
+  snapshot_at: string;
+  views: number;
+  likes: number;
+  favorites: number;
+  comments: number;
+  shares: number;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ArchiveRecordRow {
   id: string;
   workspace_id: string;
@@ -147,6 +170,8 @@ interface KnowledgeItemRow {
 }
 
 export class SqliteContentLoopRepository implements ContentLoopRepository {
+  private metricImportPreview: MetricImportPreview | null = null;
+
   private constructor(private readonly database: DatabaseSync) {}
 
   static open(options: SqliteContentLoopRepositoryOptions): SqliteContentLoopRepository {
@@ -260,6 +285,44 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     });
 
     return this.loadState(platformPackage.contentProjectId);
+  }
+
+  async previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState> {
+    const publishRecords = this.database
+      .prepare("SELECT * FROM publish_records ORDER BY published_at DESC, updated_at DESC, id ASC;")
+      .all() as unknown as PublishRecordRow[];
+
+    this.metricImportPreview = createMetricImportPreview({
+      input,
+      publishRecords: publishRecords.map(mapPublishRecordRow),
+      now: this.createPromotionDate()
+    });
+
+    return this.loadState();
+  }
+
+  async saveMetricImport(): Promise<PersistedContentLoopState> {
+    if (!this.metricImportPreview) {
+      return this.loadState();
+    }
+
+    const publishRecords = this.database
+      .prepare("SELECT * FROM publish_records ORDER BY published_at DESC, updated_at DESC, id ASC;")
+      .all() as unknown as PublishRecordRow[];
+    const snapshots = createMetricSnapshotsFromPreview({
+      preview: this.metricImportPreview,
+      publishRecords: publishRecords.map(mapPublishRecordRow),
+      now: this.createPromotionDate()
+    });
+
+    this.runTransaction(() => {
+      for (const snapshot of snapshots) {
+        this.upsertMetricSnapshot(snapshot);
+      }
+    });
+    this.metricImportPreview = null;
+
+    return this.loadState();
   }
 
   async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
@@ -394,6 +457,9 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const publishRecords = this.database
       .prepare("SELECT * FROM publish_records ORDER BY published_at DESC, updated_at DESC, id ASC;")
       .all() as unknown as PublishRecordRow[];
+    const metricSnapshots = this.database
+      .prepare("SELECT * FROM metric_snapshots ORDER BY snapshot_at DESC, updated_at DESC, id ASC;")
+      .all() as unknown as MetricSnapshotRow[];
     const archiveRecords = this.database
       .prepare("SELECT * FROM archive_records ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as ArchiveRecordRow[];
@@ -413,6 +479,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       drafts: drafts.map(mapDraftVersionRow),
       platformPackages: platformPackages.map(mapPlatformPackageRow),
       publishRecords: publishRecords.map(mapPublishRecordRow),
+      metricSnapshots: metricSnapshots.map(mapMetricSnapshotRow),
+      metricImportPreview: this.metricImportPreview ? cloneMetricImportPreview(this.metricImportPreview) : null,
       archiveRecords: archiveRecords.map(mapArchiveRecordRow),
       knowledgeItems: knowledgeItems.map(mapKnowledgeItemRow),
       selectedProjectId: selectedProject?.id ?? null
@@ -528,6 +596,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            SELECT updated_at FROM platform_packages
            UNION ALL
            SELECT updated_at FROM publish_records
+           UNION ALL
+           SELECT updated_at FROM metric_snapshots
            UNION ALL
            SELECT updated_at FROM archive_records
            UNION ALL
@@ -780,6 +850,48 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       );
   }
 
+  private upsertMetricSnapshot(snapshot: MetricSnapshot): void {
+    this.database
+      .prepare(
+        `INSERT INTO metric_snapshots (
+          id, workspace_id, content_project_id, publish_record_id, platform, source_file_name,
+          snapshot_at, views, likes, favorites, comments, shares, note, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          content_project_id = excluded.content_project_id,
+          publish_record_id = excluded.publish_record_id,
+          platform = excluded.platform,
+          source_file_name = excluded.source_file_name,
+          snapshot_at = excluded.snapshot_at,
+          views = excluded.views,
+          likes = excluded.likes,
+          favorites = excluded.favorites,
+          comments = excluded.comments,
+          shares = excluded.shares,
+          note = excluded.note,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        snapshot.id,
+        snapshot.workspaceId,
+        snapshot.contentProjectId,
+        snapshot.publishRecordId,
+        snapshot.platform,
+        snapshot.sourceFileName,
+        snapshot.snapshotAt,
+        snapshot.views,
+        snapshot.likes,
+        snapshot.favorites,
+        snapshot.comments,
+        snapshot.shares,
+        snapshot.note,
+        snapshot.createdAt,
+        snapshot.updatedAt
+      );
+  }
+
   private upsertArchiveRecord(archiveRecord: ArchiveRecord): void {
     this.database
       .prepare(
@@ -943,6 +1055,26 @@ function mapPublishRecordRow(row: PublishRecordRow): PublishRecord {
   };
 }
 
+function mapMetricSnapshotRow(row: MetricSnapshotRow): MetricSnapshot {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    contentProjectId: row.content_project_id,
+    publishRecordId: row.publish_record_id,
+    platform: row.platform as Platform,
+    sourceFileName: row.source_file_name,
+    snapshotAt: row.snapshot_at,
+    views: row.views,
+    likes: row.likes,
+    favorites: row.favorites,
+    comments: row.comments,
+    shares: row.shares,
+    note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function mapArchiveRecordRow(row: ArchiveRecordRow): ArchiveRecord {
   return {
     id: row.id,
@@ -957,6 +1089,13 @@ function mapArchiveRecordRow(row: ArchiveRecordRow): ArchiveRecord {
     status: row.status as ArchiveRecord["status"],
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function cloneMetricImportPreview(preview: MetricImportPreview): MetricImportPreview {
+  return {
+    ...preview,
+    rows: preview.rows.map((row) => ({ ...row, metrics: { ...row.metrics } }))
   };
 }
 

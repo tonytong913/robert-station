@@ -1,6 +1,8 @@
 import {
   createContentProjectFromTopic,
   createManualPublishRecord,
+  createMetricImportPreview,
+  createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
@@ -14,6 +16,9 @@ import type {
   DraftVersion,
   KnowledgeItem,
   ManualPublishInput,
+  MetricCsvImportInput,
+  MetricImportPreview,
+  MetricSnapshot,
   Platform,
   PlatformPackage,
   PublishRecord,
@@ -28,6 +33,8 @@ export interface PersistedContentLoopState {
   drafts: DraftVersion[];
   platformPackages: PlatformPackage[];
   publishRecords: PublishRecord[];
+  metricSnapshots: MetricSnapshot[];
+  metricImportPreview: MetricImportPreview | null;
   archiveRecords: ArchiveRecord[];
   knowledgeItems: KnowledgeItem[];
   selectedProjectId: string | null;
@@ -39,6 +46,8 @@ export interface ContentLoopRepository {
   generateDraftPackage(projectId: string): Promise<PersistedContentLoopState>;
   generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState>;
   recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState>;
+  previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState>;
+  saveMetricImport(): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
@@ -60,6 +69,8 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       drafts: [],
       platformPackages: [],
       publishRecords: [],
+      metricSnapshots: [],
+      metricImportPreview: null,
       archiveRecords: [],
       knowledgeItems: [],
       selectedProjectId: null
@@ -193,6 +204,48 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
     return cloneState(this.state);
   }
 
+  async previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState> {
+    this.state = {
+      ...this.state,
+      metricImportPreview: createMetricImportPreview({
+        input,
+        publishRecords: this.state.publishRecords,
+        now: new Date()
+      })
+    };
+
+    return cloneState(this.state);
+  }
+
+  async saveMetricImport(): Promise<PersistedContentLoopState> {
+    if (!this.state.metricImportPreview) {
+      return cloneState(this.state);
+    }
+
+    const snapshots = createMetricSnapshotsFromPreview({
+      preview: this.state.metricImportPreview,
+      publishRecords: this.state.publishRecords,
+      now: new Date()
+    });
+    const existingSnapshotsById = new Map(this.state.metricSnapshots.map((snapshot) => [snapshot.id, snapshot]));
+    const persistedSnapshots = snapshots.map((snapshot) => ({
+      ...snapshot,
+      createdAt: existingSnapshotsById.get(snapshot.id)?.createdAt ?? snapshot.createdAt
+    }));
+    const snapshotIds = new Set(persistedSnapshots.map((snapshot) => snapshot.id));
+
+    this.state = {
+      ...this.state,
+      metricSnapshots: [
+        ...persistedSnapshots,
+        ...this.state.metricSnapshots.filter((snapshot) => !snapshotIds.has(snapshot.id))
+      ].sort(compareMetricSnapshots),
+      metricImportPreview: null
+    };
+
+    return cloneState(this.state);
+  }
+
   async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
     const project = this.state.projects.find((candidate) => candidate.id === projectId);
 
@@ -283,6 +336,14 @@ function cloneState(state: PersistedContentLoopState): PersistedContentLoopState
 function comparePublishRecords(left: PublishRecord, right: PublishRecord): number {
   return (
     right.publishedAt.localeCompare(left.publishedAt) ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function compareMetricSnapshots(left: MetricSnapshot, right: MetricSnapshot): number {
+  return (
+    right.snapshotAt.localeCompare(left.snapshotAt) ||
     right.updatedAt.localeCompare(left.updatedAt) ||
     left.id.localeCompare(right.id)
   );

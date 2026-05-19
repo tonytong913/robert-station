@@ -137,6 +137,26 @@ CREATE TABLE IF NOT EXISTS publish_records (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS metric_snapshots (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  publish_record_id TEXT NOT NULL REFERENCES publish_records(id),
+  platform TEXT NOT NULL,
+  source_file_name TEXT NOT NULL,
+  snapshot_at TEXT NOT NULL,
+  views INTEGER NOT NULL DEFAULT 0,
+  likes INTEGER NOT NULL DEFAULT 0,
+  favorites INTEGER NOT NULL DEFAULT 0,
+  comments INTEGER NOT NULL DEFAULT 0,
+  shares INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL DEFAULT '',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS archive_records (
   id TEXT PRIMARY KEY,
   remote_id TEXT,

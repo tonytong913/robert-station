@@ -32,6 +32,8 @@ describe("SqliteContentLoopRepository", () => {
     expect(firstLoad.drafts).toHaveLength(0);
     expect(firstLoad.platformPackages).toHaveLength(0);
     expect(firstLoad.publishRecords).toHaveLength(0);
+    expect(firstLoad.metricSnapshots).toHaveLength(0);
+    expect(firstLoad.metricImportPreview).toBeNull();
     expect(firstLoad.archiveRecords).toHaveLength(0);
     expect(firstLoad.knowledgeItems).toHaveLength(0);
     expect(secondLoad).toEqual(firstLoad);
@@ -57,6 +59,7 @@ describe("SqliteContentLoopRepository", () => {
         "draft_versions",
         "platform_packages",
         "publish_records",
+        "metric_snapshots",
         "archive_records",
         "knowledge_items"
       ])
@@ -309,6 +312,88 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterPublish).toEqual(before);
   });
 
+  it("persists metric snapshots across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+
+    await publishXiaohongshuDemo(firstRepository);
+    await firstRepository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    const afterSave = await firstRepository.saveMetricImport();
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterSave.metricSnapshots).toHaveLength(1);
+    expect(afterReload).toEqual(afterSave);
+  });
+
+  it("does not change SQLite state when saving without a metric preview", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterSave = await repository.saveMetricImport();
+    repository.close();
+
+    expect(afterSave).toEqual(before);
+  });
+
+  it("keeps metric import previews transient in SQLite", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+
+    await publishXiaohongshuDemo(firstRepository);
+    const afterPreview = await firstRepository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV_WITH_INVALID_ROW
+    });
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterPreview.metricSnapshots).toHaveLength(0);
+    expect(afterPreview.metricImportPreview?.rows).toHaveLength(2);
+    expect(afterPreview.metricImportPreview?.rows.filter((row) => row.status === "matched")).toHaveLength(1);
+    expect(afterPreview.metricImportPreview?.rows.filter((row) => row.status === "invalid")).toHaveLength(1);
+    expect(afterReload.metricImportPreview).toBeNull();
+  });
+
+  it("replaces a SQLite metric snapshot while preserving createdAt and updating metrics", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+
+    await publishXiaohongshuDemo(repository);
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    const afterFirstSave = await repository.saveMetricImport();
+
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText:
+        "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+        "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,150,20,10,4,3,2026-05-20T08:00:00.000Z,better"
+    });
+    const afterSecondSave = await repository.saveMetricImport();
+    repository.close();
+
+    expect(afterSecondSave.metricSnapshots).toHaveLength(1);
+    expect(afterSecondSave.metricSnapshots[0]?.id).toBe(afterFirstSave.metricSnapshots[0]?.id);
+    expect(afterSecondSave.metricSnapshots[0]?.createdAt).toBe(afterFirstSave.metricSnapshots[0]?.createdAt);
+    expect(afterSecondSave.metricSnapshots[0]?.updatedAt).not.toBe(afterFirstSave.metricSnapshots[0]?.updatedAt);
+    expect(afterSecondSave.metricSnapshots[0]).toMatchObject({
+      views: 150,
+      likes: 20,
+      favorites: 10,
+      comments: 4,
+      shares: 3,
+      note: "better"
+    });
+  });
+
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
 
@@ -385,3 +470,34 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterArchive).toEqual(before);
   });
 });
+
+const METRIC_CSV =
+  "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+  "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,100,10,8,3,2,2026-05-20T08:00:00.000Z,good";
+
+const METRIC_CSV_WITH_INVALID_ROW =
+  `${METRIC_CSV}\n` +
+  "https://www.xiaohongshu.com/explore/missing,,xiaohongshu,1,1,1,1,1,2026-05-20T09:00:00.000Z,bad";
+
+async function publishXiaohongshuDemo(repository: SqliteContentLoopRepository) {
+  const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+  const projectId = afterPromote.selectedProjectId;
+
+  if (!projectId) {
+    throw new Error("Expected promoted project to be selected.");
+  }
+
+  await repository.generateDraftPackage(projectId);
+  const afterPackage = await repository.generatePlatformPackage(projectId, "xiaohongshu");
+  const packageId = afterPackage.platformPackages[0]?.id;
+
+  if (!packageId) {
+    throw new Error("Expected a generated platform package.");
+  }
+
+  return repository.recordManualPublish({
+    platformPackageId: packageId,
+    publishedAt: "2026-05-19T12:00:00.000Z",
+    url: "https://www.xiaohongshu.com/explore/demo"
+  });
+}

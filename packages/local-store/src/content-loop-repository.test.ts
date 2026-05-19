@@ -11,6 +11,8 @@ describe("InMemoryContentLoopRepository", () => {
     expect(state.drafts).toHaveLength(0);
     expect(state.platformPackages).toHaveLength(0);
     expect(state.publishRecords).toHaveLength(0);
+    expect(state.metricSnapshots).toHaveLength(0);
+    expect(state.metricImportPreview).toBeNull();
     expect(state.archiveRecords).toHaveLength(0);
     expect(state.knowledgeItems).toHaveLength(0);
     expect(state.selectedProjectId).toBeNull();
@@ -225,6 +227,91 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterSecondPublish.publishRecords[1]?.publishedAt).toBe("2026-05-19T15:00:00.000Z");
   });
 
+  it("previews metric CSV rows in memory without saving snapshots", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const afterPreview = await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV_WITH_INVALID_ROW
+    });
+
+    expect(afterPublish.metricSnapshots).toHaveLength(0);
+    expect(afterPreview.metricSnapshots).toHaveLength(0);
+    expect(afterPreview.metricImportPreview?.rows).toHaveLength(2);
+    expect(afterPreview.metricImportPreview?.rows.filter((row) => row.status === "matched")).toHaveLength(1);
+    expect(afterPreview.metricImportPreview?.rows.filter((row) => row.status === "invalid")).toHaveLength(1);
+  });
+
+  it("saves matched metric preview rows in memory and clears the preview", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    await publishXiaohongshuDemo(repository);
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    const afterSave = await repository.saveMetricImport();
+
+    expect(afterSave.metricSnapshots).toHaveLength(1);
+    expect(afterSave.metricSnapshots[0]).toMatchObject({
+      views: 100,
+      likes: 10,
+      favorites: 8,
+      comments: 3,
+      shares: 2,
+      note: "good"
+    });
+    expect(afterSave.metricImportPreview).toBeNull();
+  });
+
+  it("does not change in-memory state when saving without a metric preview", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const before = await repository.loadContentLoop();
+    const afterSave = await repository.saveMetricImport();
+
+    expect(afterSave).toEqual(before);
+  });
+
+  it("replaces an in-memory metric snapshot and preserves createdAt", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    await publishXiaohongshuDemo(repository);
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-05-20T10:00:00.000Z"));
+      await repository.previewMetricCsvImport({
+        sourceFileName: "metrics.csv",
+        csvText: METRIC_CSV
+      });
+      const afterFirstSave = await repository.saveMetricImport();
+
+      vi.setSystemTime(new Date("2026-05-20T11:00:00.000Z"));
+      await repository.previewMetricCsvImport({
+        sourceFileName: "metrics.csv",
+        csvText:
+          "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+          "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,150,20,10,4,3,2026-05-20T08:00:00.000Z,better"
+      });
+      const afterSecondSave = await repository.saveMetricImport();
+
+      expect(afterSecondSave.metricSnapshots).toHaveLength(1);
+      expect(afterSecondSave.metricSnapshots[0]?.id).toBe(afterFirstSave.metricSnapshots[0]?.id);
+      expect(afterSecondSave.metricSnapshots[0]?.createdAt).toBe(afterFirstSave.metricSnapshots[0]?.createdAt);
+      expect(afterSecondSave.metricSnapshots[0]?.updatedAt).not.toBe(afterFirstSave.metricSnapshots[0]?.updatedAt);
+      expect(afterSecondSave.metricSnapshots[0]).toMatchObject({
+        views: 150,
+        likes: 20,
+        favorites: 10,
+        comments: 4,
+        shares: 3,
+        note: "better"
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("archives a generated platform package in memory", async () => {
     const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
     const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
@@ -275,3 +362,34 @@ describe("InMemoryContentLoopRepository", () => {
     }
   });
 });
+
+const METRIC_CSV =
+  "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+  "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,100,10,8,3,2,2026-05-20T08:00:00.000Z,good";
+
+const METRIC_CSV_WITH_INVALID_ROW =
+  `${METRIC_CSV}\n` +
+  "https://www.xiaohongshu.com/explore/missing,,xiaohongshu,1,1,1,1,1,2026-05-20T09:00:00.000Z,bad";
+
+async function publishXiaohongshuDemo(repository: InMemoryContentLoopRepository) {
+  const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+  const projectId = afterPromote.selectedProjectId;
+
+  if (!projectId) {
+    throw new Error("Expected promoted project to be selected.");
+  }
+
+  await repository.generateDraftPackage(projectId);
+  const afterPackage = await repository.generatePlatformPackage(projectId, "xiaohongshu");
+  const packageId = afterPackage.platformPackages[0]?.id;
+
+  if (!packageId) {
+    throw new Error("Expected a generated platform package.");
+  }
+
+  return repository.recordManualPublish({
+    platformPackageId: packageId,
+    publishedAt: "2026-05-19T12:00:00.000Z",
+    url: "https://www.xiaohongshu.com/explore/demo"
+  });
+}
