@@ -112,6 +112,28 @@ export interface DraftVersion {
   updatedAt: string;
 }
 
+export interface PlatformPackageCheck {
+  name: string;
+  status: "pass" | "warning";
+  message: string;
+}
+
+export interface PlatformPackage {
+  id: EntityId;
+  workspaceId: EntityId;
+  contentProjectId: EntityId;
+  draftVersionId: EntityId;
+  platform: Platform;
+  title: string;
+  body: string;
+  tags: string[];
+  coverText: string;
+  requiredAssets: string[];
+  checks: PlatformPackageCheck[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContentLoopSeed {
   topics: Topic[];
   sourceReferences: SourceReference[];
