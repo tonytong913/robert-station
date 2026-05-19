@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteContentLoopRepository } from "./sqlite-content-loop-repository";
 
@@ -32,6 +33,28 @@ describe("SqliteContentLoopRepository", () => {
     expect(secondLoad).toEqual(firstLoad);
   });
 
+  it("creates the required schema tables on initialization", () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    repository.close();
+
+    const database = new DatabaseSync(databasePath);
+    const tableRows = database
+      .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name ASC;")
+      .all() as unknown as Array<{ name: string }>;
+    database.close();
+
+    expect(tableRows.map((row) => row.name)).toEqual(
+      expect.arrayContaining([
+        "workspaces",
+        "columns",
+        "topics",
+        "source_references",
+        "content_projects",
+        "draft_versions"
+      ])
+    );
+  });
+
   it("persists promoted topic across repository instances", async () => {
     const firstRepository = SqliteContentLoopRepository.open({ databasePath });
     const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
@@ -59,5 +82,19 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterSecondPromote.projects).toHaveLength(1);
     expect(afterSecondPromote.drafts).toHaveLength(1);
     expect(afterUnknownPromote).toEqual(afterSecondPromote);
+  });
+
+  it("selects the latest promoted project after promoting different topics", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const afterSecondPromote = await firstRepository.promoteTopic("topic_finance-family-dashboard");
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterSecondPromote.selectedProjectId).toBe("project_topic-finance-family-dashboard");
+    expect(afterReload.selectedProjectId).toBe("project_topic-finance-family-dashboard");
   });
 });

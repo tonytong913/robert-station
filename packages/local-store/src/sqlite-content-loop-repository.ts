@@ -96,7 +96,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       return this.loadState();
     }
 
-    const result = createContentProjectFromTopic(topic, `column_${topic.columnSlug}`);
+    const result = createContentProjectFromTopic(topic, `column_${topic.columnSlug}`, this.createPromotionDate());
 
     try {
       this.database.exec("BEGIN;");
@@ -209,6 +209,25 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   private getTopic(topicId: string): Topic | null {
     const row = this.database.prepare("SELECT * FROM topics WHERE id = ?;").get(topicId) as TopicRow | undefined;
     return row ? mapTopicRow(row) : null;
+  }
+
+  private createPromotionDate(): Date {
+    const row = this.database
+      .prepare(
+        `SELECT MAX(updated_at) AS updated_at
+         FROM (
+           SELECT updated_at FROM topics
+           UNION ALL
+           SELECT updated_at FROM content_projects
+           UNION ALL
+           SELECT updated_at FROM draft_versions
+         );`
+      )
+      .get() as { updated_at: string | null };
+    const latestPersistedTime = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+    const nextTime = Math.max(Date.now(), latestPersistedTime + 1);
+
+    return new Date(nextTime);
   }
 
   private upsertTopic(topic: Topic): void {
