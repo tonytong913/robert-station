@@ -2,7 +2,7 @@ import { DEFAULT_COLUMNS } from "@robert-station/core";
 import type { ContentColumnSlug } from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 import type { ReactElement } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   archivePersistedProject,
   generatePersistedDraftPackage,
@@ -56,6 +56,43 @@ export function App(): ReactElement {
 
     return screen;
   }, [screen]);
+
+  const selectedProject = contentLoop?.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
+  const selectedDraft =
+    selectedProject && contentLoop
+      ? contentLoop.drafts.find((draft) => draft.contentProjectId === selectedProject.id) ?? null
+      : null;
+  const selectedXiaohongshuPackage =
+    selectedProject && contentLoop
+      ? contentLoop.platformPackages.find(
+          (platformPackage) =>
+            platformPackage.contentProjectId === selectedProject.id && platformPackage.platform === "xiaohongshu"
+        ) ?? null
+      : null;
+  const selectedPublishRecord =
+    selectedXiaohongshuPackage && contentLoop
+      ? contentLoop.publishRecords.find((record) => record.platformPackageId === selectedXiaohongshuPackage.id) ?? null
+      : null;
+  const selectedArchiveRecord =
+    selectedProject && contentLoop
+      ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
+      : null;
+  const selectedXiaohongshuPackageId = selectedXiaohongshuPackage?.id ?? null;
+  const selectedPublishRecordUrl = selectedPublishRecord?.url ?? "";
+  const selectedPublishRecordNote = selectedPublishRecord?.note ?? "";
+  const candidateTopicCount = contentLoop?.topics.filter((topic) => topic.status === "candidate").length ?? 0;
+  const activeProjectCount = contentLoop?.projects.length ?? 0;
+
+  useLayoutEffect(() => {
+    if (!selectedXiaohongshuPackageId) {
+      setPublishUrl("");
+      setPublishNote("");
+      return;
+    }
+
+    setPublishUrl(selectedPublishRecordUrl);
+    setPublishNote(selectedPublishRecordNote);
+  }, [selectedXiaohongshuPackageId, selectedPublishRecordNote, selectedPublishRecordUrl]);
 
   async function handlePromote(topicId: string): Promise<void> {
     const nextState = await promotePersistedTopic(topicId);
@@ -197,25 +234,6 @@ export function App(): ReactElement {
       </main>
     );
   }
-
-  const selectedProject = contentLoop.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
-  const selectedDraft = selectedProject
-    ? contentLoop.drafts.find((draft) => draft.contentProjectId === selectedProject.id) ?? null
-    : null;
-  const selectedXiaohongshuPackage = selectedProject
-    ? contentLoop.platformPackages.find(
-        (platformPackage) =>
-          platformPackage.contentProjectId === selectedProject.id && platformPackage.platform === "xiaohongshu"
-      ) ?? null
-    : null;
-  const selectedPublishRecord = selectedXiaohongshuPackage
-    ? contentLoop.publishRecords.find((record) => record.platformPackageId === selectedXiaohongshuPackage.id) ?? null
-    : null;
-  const selectedArchiveRecord = selectedProject
-    ? contentLoop.archiveRecords.find((archiveRecord) => archiveRecord.contentProjectId === selectedProject.id) ?? null
-    : null;
-  const candidateTopicCount = contentLoop.topics.filter((topic) => topic.status === "candidate").length;
-  const activeProjectCount = contentLoop.projects.length;
 
   return (
     <main className="app-shell">
@@ -511,6 +529,7 @@ export function App(): ReactElement {
                             <strong>Published</strong>
                             <p>{selectedPublishRecord.publishedAt}</p>
                             <p>{selectedPublishRecord.url || "No URL recorded"}</p>
+                            {selectedPublishRecord.note ? <p>{selectedPublishRecord.note}</p> : null}
                           </div>
                         ) : null}
                       </section>

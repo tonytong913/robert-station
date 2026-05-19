@@ -175,11 +175,55 @@ describe("App content loop", () => {
     fireEvent.change(screen.getByLabelText("Publish URL"), {
       target: { value: "https://www.xiaohongshu.com/explore/demo" }
     });
+    fireEvent.change(screen.getByLabelText("Publish note"), {
+      target: { value: "Published manually after final review." }
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
 
     expect(await screen.findByText("Published")).toBeInTheDocument();
     expect(screen.getByText("https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
-    expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalled();
+    expect(screen.getByText("Published manually after final review.")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        platformPackageId: expect.stringContaining("xiaohongshu"),
+        url: "https://www.xiaohongshu.com/explore/demo",
+        note: "Published manually after final review."
+      })
+    );
+  });
+
+  it("does not leak unsaved manual publish fields across Xiaohongshu packages", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "Robert Station" });
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const aiTopicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(aiTopicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+    await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+    fireEvent.change(screen.getByLabelText("Publish URL"), {
+      target: { value: "https://www.xiaohongshu.com/explore/unsaved" }
+    });
+    fireEvent.change(screen.getByLabelText("Publish note"), {
+      target: { value: "Do not carry this draft note forward." }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Topic Pool" }));
+    const financeTopicCard = screen.getByRole("article", {
+      name: "A simple family finance dashboard for monthly decisions"
+    });
+    fireEvent.click(within(financeTopicCard).getByRole("button", { name: "Promote to project" }));
+
+    await screen.findByRole("heading", { name: "Creation Studio" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate Xiaohongshu package" }));
+    await screen.findByRole("heading", { name: "Xiaohongshu Package" });
+
+    expect(screen.getByLabelText("Publish URL")).toHaveValue("");
+    expect(screen.getByLabelText("Publish note")).toHaveValue("");
   });
 
   it("shows an inline error and keeps package content when manual publish save fails", async () => {
