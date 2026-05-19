@@ -103,9 +103,9 @@ export function generateMockTopics(request: TopicAssistantRequest): ContentLoopS
     title: template.title,
     hook: template.hook,
     audience: template.audience,
-    targetPlatforms: template.targetPlatforms,
+    targetPlatforms: [...template.targetPlatforms],
     status: "candidate" as const,
-    score: template.score,
+    score: { ...template.score },
     createdAt: timestamp,
     updatedAt: timestamp
   }));

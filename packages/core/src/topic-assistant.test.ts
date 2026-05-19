@@ -25,4 +25,18 @@ describe("generateMockTopics", () => {
       expect(result.sourceReferences.every((source) => source.topicId?.startsWith(`topic_${columnSlug}_`))).toBe(true);
     }
   });
+
+  it("isolates generated topic data from shared templates", () => {
+    const firstResult = generateMockTopics({ columnSlug: "ai", workspaceId: "workspace_robert-station" });
+
+    firstResult.topics[0]?.targetPlatforms.push("douyin");
+    if (firstResult.topics[0]) {
+      firstResult.topics[0].score.heat = 1;
+    }
+
+    const secondResult = generateMockTopics({ columnSlug: "ai", workspaceId: "workspace_robert-station" });
+
+    expect(secondResult.topics[0]?.targetPlatforms).toEqual(["xiaohongshu", "bilibili"]);
+    expect(secondResult.topics[0]?.score).toEqual({ heat: 84, fit: 92, difficulty: 44, personaConsistency: 91 });
+  });
 });
