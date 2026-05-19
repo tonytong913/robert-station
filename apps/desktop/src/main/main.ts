@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
+import { registerContentLoopIpc } from "./content-loop-service";
 
 function createMainWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -23,6 +24,7 @@ function createMainWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  registerContentLoopIpc();
   createMainWindow();
 
   app.on("activate", () => {

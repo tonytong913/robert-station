@@ -1,5 +1,15 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
+import type { PersistedContentLoopState } from "@robert-station/local-store";
+import {
+  CONTENT_LOOP_LOAD_CHANNEL,
+  CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL
+} from "../main/ipc-channels";
 
 contextBridge.exposeInMainWorld("robertStation", {
-  appName: "Robert Station"
+  appName: "Robert Station",
+  contentLoop: {
+    load: () => ipcRenderer.invoke(CONTENT_LOOP_LOAD_CHANNEL) as Promise<PersistedContentLoopState>,
+    promoteTopic: (topicId: string) =>
+      ipcRenderer.invoke(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, topicId) as Promise<PersistedContentLoopState>
+  }
 });
