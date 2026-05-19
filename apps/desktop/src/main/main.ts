@@ -24,7 +24,9 @@ function createMainWindow(): void {
   }
 }
 
-void app.whenReady().then(() => {
+async function startApp(): Promise<void> {
+  await app.whenReady();
+
   const repository = SqliteContentLoopRepository.open({
     databasePath: path.join(app.getPath("userData"), "robert-station.sqlite")
   });
@@ -41,6 +43,11 @@ void app.whenReady().then(() => {
       createMainWindow();
     }
   });
+}
+
+void startApp().catch((error: unknown) => {
+  console.error("Failed to start Electron main process", error);
+  app.quit();
 });
 
 app.on("window-all-closed", () => {

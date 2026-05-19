@@ -4,7 +4,11 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: ["@robert-station/local-store", "@robert-station/core"]
+      })
+    ]
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
