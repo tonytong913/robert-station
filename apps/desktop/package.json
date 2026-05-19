@@ -14,7 +14,7 @@
     "@robert-station/core": "0.1.0",
     "@robert-station/local-store": "0.1.0",
     "@vitejs/plugin-react": "^4.4.0",
-    "electron": "^36.0.0",
+    "electron": "^42.1.0",
     "electron-vite": "^3.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
