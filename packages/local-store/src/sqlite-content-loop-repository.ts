@@ -1,0 +1,392 @@
+import { DatabaseSync } from "node:sqlite";
+import {
+  createContentProjectFromTopic,
+  createDefaultWorkspaceSeed,
+  createSampleContentLoopSeed
+} from "@robert-station/core";
+import type {
+  ContentColumnSlug,
+  ContentProject,
+  ContentProjectStatus,
+  DraftVersion,
+  Platform,
+  SourceReference,
+  SourceReferenceKind,
+  Topic,
+  TopicScore,
+  TopicStatus
+} from "@robert-station/core";
+import type { ContentLoopRepository, PersistedContentLoopState } from "./content-loop-repository";
+import { getSqliteSchemaStatements } from "./schema";
+
+const WORKSPACE_NAME = "Robert Station";
+const WORKSPACE_ID = "workspace_robert-station";
+
+interface SqliteContentLoopRepositoryOptions {
+  databasePath: string;
+}
+
+interface TopicRow {
+  id: string;
+  workspace_id: string;
+  column_slug: string;
+  title: string;
+  hook: string;
+  audience: string;
+  target_platforms_json: string;
+  status: string;
+  score_json: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SourceReferenceRow {
+  id: string;
+  workspace_id: string;
+  topic_id: string | null;
+  content_project_id: string | null;
+  kind: string;
+  title: string;
+  url: string | null;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ContentProjectRow {
+  id: string;
+  workspace_id: string;
+  primary_column_id: string;
+  source_topic_id: string | null;
+  title: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface DraftVersionRow {
+  id: string;
+  workspace_id: string;
+  content_project_id: string;
+  version: number;
+  title: string;
+  body: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export class SqliteContentLoopRepository implements ContentLoopRepository {
+  private constructor(private readonly database: DatabaseSync) {
+    this.initialize();
+  }
+
+  static open(options: SqliteContentLoopRepositoryOptions): SqliteContentLoopRepository {
+    return new SqliteContentLoopRepository(new DatabaseSync(options.databasePath));
+  }
+
+  async loadContentLoop(): Promise<PersistedContentLoopState> {
+    return this.loadState();
+  }
+
+  async promoteTopic(topicId: string): Promise<PersistedContentLoopState> {
+    const topic = this.getTopic(topicId);
+
+    if (!topic || topic.status === "promoted") {
+      return this.loadState();
+    }
+
+    const result = createContentProjectFromTopic(topic, `column_${topic.columnSlug}`);
+
+    try {
+      this.database.exec("BEGIN;");
+      this.upsertTopic(result.updatedTopic);
+      this.upsertContentProject(result.project);
+      this.upsertDraftVersion(result.draft);
+      this.database.exec("COMMIT;");
+    } catch (error) {
+      this.database.exec("ROLLBACK;");
+      throw error;
+    }
+
+    return this.loadState();
+  }
+
+  close(): void {
+    this.database.close();
+  }
+
+  private initialize(): void {
+    this.database.exec("PRAGMA foreign_keys = ON;");
+
+    for (const statement of getSqliteSchemaStatements()) {
+      this.database.exec(statement);
+    }
+
+    const row = this.database.prepare("SELECT COUNT(*) AS count FROM topics;").get() as { count: number };
+    if (row.count === 0) {
+      this.seed();
+    }
+  }
+
+  private seed(): void {
+    const workspaceSeed = createDefaultWorkspaceSeed(WORKSPACE_NAME);
+    const contentLoopSeed = createSampleContentLoopSeed(WORKSPACE_ID);
+
+    this.database.exec("BEGIN;");
+
+    try {
+      this.database
+        .prepare(
+          `INSERT OR IGNORE INTO workspaces (id, name, created_at, updated_at)
+           VALUES (?, ?, ?, ?);`
+        )
+        .run(
+          workspaceSeed.workspace.id,
+          workspaceSeed.workspace.name,
+          workspaceSeed.workspace.createdAt,
+          workspaceSeed.workspace.updatedAt
+        );
+
+      const insertColumn = this.database.prepare(
+        `INSERT OR IGNORE INTO columns (id, workspace_id, slug, name, description, priority, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?);`
+      );
+      for (const column of workspaceSeed.columns) {
+        insertColumn.run(
+          column.id,
+          column.workspaceId,
+          column.slug,
+          column.name,
+          column.description,
+          column.priority,
+          column.createdAt,
+          column.updatedAt
+        );
+      }
+
+      for (const topic of contentLoopSeed.topics) {
+        this.upsertTopic(topic);
+      }
+
+      for (const sourceReference of contentLoopSeed.sourceReferences) {
+        this.upsertSourceReference(sourceReference);
+      }
+
+      this.database.exec("COMMIT;");
+    } catch (error) {
+      this.database.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  private loadState(): PersistedContentLoopState {
+    const topics = this.database
+      .prepare("SELECT * FROM topics ORDER BY created_at ASC, id ASC;")
+      .all() as unknown as TopicRow[];
+    const sourceReferences = this.database
+      .prepare("SELECT * FROM source_references ORDER BY created_at ASC, id ASC;")
+      .all() as unknown as SourceReferenceRow[];
+    const projects = this.database
+      .prepare("SELECT * FROM content_projects ORDER BY updated_at DESC, created_at DESC, id ASC;")
+      .all() as unknown as ContentProjectRow[];
+    const drafts = this.database
+      .prepare("SELECT * FROM draft_versions ORDER BY updated_at DESC, created_at DESC, id ASC;")
+      .all() as unknown as DraftVersionRow[];
+    const selectedProject = this.database
+      .prepare("SELECT id FROM content_projects ORDER BY updated_at DESC, created_at DESC, id ASC LIMIT 1;")
+      .get() as { id: string } | undefined;
+
+    return {
+      topics: topics.map(mapTopicRow),
+      sourceReferences: sourceReferences.map(mapSourceReferenceRow),
+      projects: projects.map(mapContentProjectRow),
+      drafts: drafts.map(mapDraftVersionRow),
+      selectedProjectId: selectedProject?.id ?? null
+    };
+  }
+
+  private getTopic(topicId: string): Topic | null {
+    const row = this.database.prepare("SELECT * FROM topics WHERE id = ?;").get(topicId) as TopicRow | undefined;
+    return row ? mapTopicRow(row) : null;
+  }
+
+  private upsertTopic(topic: Topic): void {
+    this.database
+      .prepare(
+        `INSERT INTO topics (
+          id, workspace_id, column_slug, title, hook, audience, target_platforms_json,
+          status, score_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          column_slug = excluded.column_slug,
+          title = excluded.title,
+          hook = excluded.hook,
+          audience = excluded.audience,
+          target_platforms_json = excluded.target_platforms_json,
+          status = excluded.status,
+          score_json = excluded.score_json,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        topic.id,
+        topic.workspaceId,
+        topic.columnSlug,
+        topic.title,
+        topic.hook,
+        topic.audience,
+        JSON.stringify(topic.targetPlatforms),
+        topic.status,
+        JSON.stringify(topic.score),
+        topic.createdAt,
+        topic.updatedAt
+      );
+  }
+
+  private upsertSourceReference(sourceReference: SourceReference): void {
+    this.database
+      .prepare(
+        `INSERT INTO source_references (
+          id, workspace_id, topic_id, content_project_id, kind, title, url, note, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          topic_id = excluded.topic_id,
+          content_project_id = excluded.content_project_id,
+          kind = excluded.kind,
+          title = excluded.title,
+          url = excluded.url,
+          note = excluded.note,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        sourceReference.id,
+        sourceReference.workspaceId,
+        sourceReference.topicId ?? null,
+        sourceReference.contentProjectId ?? null,
+        sourceReference.kind,
+        sourceReference.title,
+        sourceReference.url ?? null,
+        sourceReference.note,
+        sourceReference.createdAt,
+        sourceReference.updatedAt
+      );
+  }
+
+  private upsertContentProject(project: ContentProject): void {
+    this.database
+      .prepare(
+        `INSERT INTO content_projects (
+          id, workspace_id, primary_column_id, source_topic_id, title, status, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          primary_column_id = excluded.primary_column_id,
+          source_topic_id = excluded.source_topic_id,
+          title = excluded.title,
+          status = excluded.status,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        project.id,
+        project.workspaceId,
+        project.primaryColumnId,
+        project.sourceTopicId ?? null,
+        project.title,
+        project.status,
+        project.createdAt,
+        project.updatedAt
+      );
+  }
+
+  private upsertDraftVersion(draft: DraftVersion): void {
+    this.database
+      .prepare(
+        `INSERT INTO draft_versions (
+          id, workspace_id, content_project_id, version, title, body, created_by, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          content_project_id = excluded.content_project_id,
+          version = excluded.version,
+          title = excluded.title,
+          body = excluded.body,
+          created_by = excluded.created_by,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        draft.id,
+        draft.workspaceId,
+        draft.contentProjectId,
+        draft.version,
+        draft.title,
+        draft.body,
+        draft.createdBy,
+        draft.createdAt,
+        draft.updatedAt
+      );
+  }
+}
+
+function mapTopicRow(row: TopicRow): Topic {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    columnSlug: row.column_slug as ContentColumnSlug,
+    title: row.title,
+    hook: row.hook,
+    audience: row.audience,
+    targetPlatforms: JSON.parse(row.target_platforms_json) as Platform[],
+    status: row.status as TopicStatus,
+    score: JSON.parse(row.score_json) as TopicScore,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapSourceReferenceRow(row: SourceReferenceRow): SourceReference {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    ...(row.topic_id ? { topicId: row.topic_id } : {}),
+    ...(row.content_project_id ? { contentProjectId: row.content_project_id } : {}),
+    kind: row.kind as SourceReferenceKind,
+    title: row.title,
+    ...(row.url ? { url: row.url } : {}),
+    note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapContentProjectRow(row: ContentProjectRow): ContentProject {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    primaryColumnId: row.primary_column_id,
+    ...(row.source_topic_id ? { sourceTopicId: row.source_topic_id } : {}),
+    title: row.title,
+    status: row.status as ContentProjectStatus,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapDraftVersionRow(row: DraftVersionRow): DraftVersion {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    contentProjectId: row.content_project_id,
+    version: row.version,
+    title: row.title,
+    body: row.body,
+    createdBy: row.created_by as DraftVersion["createdBy"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
