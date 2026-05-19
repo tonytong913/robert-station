@@ -202,6 +202,101 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterReload).toEqual(afterPublish);
   });
 
+  it("replaces the same SQLite publish row and preserves createdAt across reload", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    await firstRepository.generateDraftPackage(projectId);
+    const afterPackage = await firstRepository.generatePlatformPackage(projectId, "xiaohongshu");
+    const packageId = afterPackage.platformPackages[0]?.id;
+
+    if (!packageId) {
+      throw new Error("Expected a generated platform package.");
+    }
+
+    const afterFirstPublish = await firstRepository.recordManualPublish({
+      platformPackageId: packageId,
+      publishedAt: "2026-05-19T15:00:00.000Z",
+      url: "https://www.xiaohongshu.com/explore/first",
+      note: "First publish."
+    });
+    const afterSecondPublish = await firstRepository.recordManualPublish({
+      platformPackageId: packageId,
+      publishedAt: "2026-05-19T16:00:00.000Z",
+      url: "https://www.xiaohongshu.com/explore/second",
+      note: "Second publish."
+    });
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterSecondPublish.publishRecords).toHaveLength(1);
+    expect(afterSecondPublish.publishRecords[0]?.id).toBe(afterFirstPublish.publishRecords[0]?.id);
+    expect(afterSecondPublish.publishRecords[0]?.createdAt).toBe(afterFirstPublish.publishRecords[0]?.createdAt);
+    expect(afterSecondPublish.publishRecords[0]?.publishedAt).toBe("2026-05-19T16:00:00.000Z");
+    expect(afterSecondPublish.publishRecords[0]?.url).toBe("https://www.xiaohongshu.com/explore/second");
+    expect(afterSecondPublish.publishRecords[0]?.note).toBe("Second publish.");
+    expect(afterReload).toEqual(afterSecondPublish);
+  });
+
+  it("loads multiple SQLite publish records newest first", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const afterFirstPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const firstProjectId = afterFirstPromote.selectedProjectId;
+
+    if (!firstProjectId) {
+      throw new Error("Expected first promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(firstProjectId);
+    const afterFirstPackage = await repository.generatePlatformPackage(firstProjectId, "xiaohongshu");
+    const firstPackageId = afterFirstPackage.platformPackages.find(
+      (platformPackage) => platformPackage.contentProjectId === firstProjectId
+    )?.id;
+
+    if (!firstPackageId) {
+      throw new Error("Expected a generated platform package for the first project.");
+    }
+
+    const afterSecondPromote = await repository.promoteTopic("topic_finance-family-dashboard");
+    const secondProjectId = afterSecondPromote.selectedProjectId;
+
+    if (!secondProjectId) {
+      throw new Error("Expected second promoted project to be selected.");
+    }
+
+    await repository.generateDraftPackage(secondProjectId);
+    const afterSecondPackage = await repository.generatePlatformPackage(secondProjectId, "xiaohongshu");
+    const secondPackageId = afterSecondPackage.platformPackages.find(
+      (platformPackage) => platformPackage.contentProjectId === secondProjectId
+    )?.id;
+
+    if (!secondPackageId) {
+      throw new Error("Expected a generated platform package for the second project.");
+    }
+
+    await repository.recordManualPublish({
+      platformPackageId: firstPackageId,
+      publishedAt: "2026-05-19T15:00:00.000Z"
+    });
+    const afterSecondPublish = await repository.recordManualPublish({
+      platformPackageId: secondPackageId,
+      publishedAt: "2026-05-19T17:00:00.000Z"
+    });
+    repository.close();
+
+    expect(afterSecondPublish.publishRecords).toHaveLength(2);
+    expect(afterSecondPublish.publishRecords[0]?.publishedAt).toBe("2026-05-19T17:00:00.000Z");
+    expect(afterSecondPublish.publishRecords[1]?.publishedAt).toBe("2026-05-19T15:00:00.000Z");
+  });
+
   it("does not insert a manual publish record for a missing package", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
     const before = await repository.loadContentLoop();
