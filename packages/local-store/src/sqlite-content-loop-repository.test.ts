@@ -457,6 +457,34 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterSecondReview.reviewReports[0]?.id).toBe(createEntityId("review-report", `${publishRecord!.id}-v2`));
   });
 
+  it("uses metric snapshotAt as a SQLite clock source for generated review reports", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    expect(publishRecord).toBeDefined();
+
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText:
+        "url,publishedAt,platform,views,likes,favorites,comments,shares,snapshotAt,note\n" +
+        "https://www.xiaohongshu.com/explore/demo,,xiaohongshu,100,10,8,3,2,2030-01-01T00:00:00.000Z,future snapshot"
+    });
+    await repository.saveMetricImport();
+    const afterReview = await repository.generateReviewReport(publishRecord!.id);
+    repository.close();
+
+    const reviewReport = afterReview.reviewReports[0];
+    const reviewedProject = afterReview.projects.find((project) => project.id === publishRecord!.contentProjectId);
+
+    expect(reviewReport).toBeDefined();
+    expect(reviewedProject).toBeDefined();
+    expect(new Date(reviewReport?.updatedAt ?? 0).getTime()).toBeGreaterThan(
+      new Date("2030-01-01T00:00:00.000Z").getTime()
+    );
+    expect(reviewedProject?.updatedAt).toBe(reviewReport?.updatedAt);
+  });
+
   it("does not insert a SQLite review report for a missing publish record", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
     const before = await repository.loadContentLoop();

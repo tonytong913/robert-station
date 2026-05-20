@@ -376,7 +376,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       platformPackage,
       metricSnapshot,
       version,
-      now: new Date()
+      now: this.createPromotionDate()
     });
 
     this.runTransaction(() => {

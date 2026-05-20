@@ -43,6 +43,7 @@ const emptyState: PersistedContentLoopState = {
   publishRecords: [],
   metricSnapshots: [],
   metricImportPreview: null,
+  reviewReports: [],
   knowledgeItems: [],
   selectedProjectId: null
 };
@@ -178,6 +179,7 @@ function createRepository(): ContentLoopRepository {
     recordManualPublish: vi.fn(async () => emptyState),
     previewMetricCsvImport: vi.fn(async () => emptyState),
     saveMetricImport: vi.fn(async () => emptyState),
+    generateReviewReport: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }
