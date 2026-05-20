@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
@@ -373,6 +373,27 @@ describe("App content loop", () => {
 
     expect(await screen.findByText("Could not generate review report. Try again.")).toBeInTheDocument();
     expect(screen.getByText("Xiaohongshu Package")).toBeInTheDocument();
+  });
+
+  it("clears review generation errors when switching publish records", async () => {
+    window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => {
+      throw new Error("Review failed");
+    });
+
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+    expect(await screen.findByText("Could not generate review report. Try again.")).toBeInTheDocument();
+
+    await promoteAndPublishXiaohongshuPackage(
+      "A simple family finance dashboard for monthly decisions",
+      "https://www.xiaohongshu.com/explore/finance"
+    );
+
+    expect(screen.getByText("https://www.xiaohongshu.com/explore/finance")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate review report" })).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.queryByText("Could not generate review report. Try again.")).not.toBeInTheDocument();
+    });
   });
 
   it("archives the selected project and shows archive status", async () => {

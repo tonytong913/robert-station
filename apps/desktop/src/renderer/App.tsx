@@ -22,6 +22,7 @@ type Screen = (typeof workflowStages)[number];
 
 export function App(): ReactElement {
   const isMountedRef = useRef(false);
+  const selectedPublishRecordIdRef = useRef<string | null>(null);
   const [screen, setScreen] = useState<Screen>("Dashboard");
   const [contentLoop, setContentLoop] = useState<PersistedContentLoopState | null>(null);
   const [topicGenerationColumn, setTopicGenerationColumn] = useState<ContentColumnSlug>("ai");
@@ -107,6 +108,7 @@ export function App(): ReactElement {
   const selectedPublishRecordPublishedAt = selectedPublishRecord?.publishedAt ?? "";
   const selectedPublishRecordUrl = selectedPublishRecord?.url ?? "";
   const selectedPublishRecordNote = selectedPublishRecord?.note ?? "";
+  const selectedPublishRecordId = selectedPublishRecord?.id ?? null;
   const candidateTopicCount = contentLoop?.topics.filter((topic) => topic.status === "candidate").length ?? 0;
   const activeProjectCount = contentLoop?.projects.length ?? 0;
 
@@ -129,6 +131,12 @@ export function App(): ReactElement {
     selectedPublishRecordUrl,
     selectedXiaohongshuPackageId
   ]);
+
+  useEffect(() => {
+    selectedPublishRecordIdRef.current = selectedPublishRecordId;
+    setIsGeneratingReviewReport(false);
+    setReviewReportError(null);
+  }, [selectedPublishRecordId]);
 
   async function handlePromote(topicId: string): Promise<void> {
     const nextState = await promotePersistedTopic(topicId);
@@ -326,11 +334,11 @@ export function App(): ReactElement {
         setContentLoop(nextState);
       }
     } catch {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
         setReviewReportError("Could not generate review report. Try again.");
       }
     } finally {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
         setIsGeneratingReviewReport(false);
       }
     }
