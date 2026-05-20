@@ -4,6 +4,7 @@ import path from "node:path";
 import { registerContentLoopIpc } from "./content-loop-service";
 
 function createMainWindow(): void {
+  const preloadPath = path.join(__dirname, "../preload/preload.js");
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -11,10 +12,14 @@ function createMainWindow(): void {
     minHeight: 680,
     title: "Robert Station",
     webPreferences: {
-      preload: path.join(__dirname, "../preload/preload.js"),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false
     }
+  });
+
+  mainWindow.webContents.on("preload-error", (_event, failedPreloadPath, error) => {
+    console.error("Electron preload failed", { failedPreloadPath, message: error.message, stack: error.stack });
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
