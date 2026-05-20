@@ -201,6 +201,7 @@ function createRepository(): ContentLoopRepository {
     previewMetricCsvImport: vi.fn(async () => emptyState),
     saveMetricImport: vi.fn(async () => emptyState),
     generateReviewReport: vi.fn(async () => emptyState),
+    extractReviewKnowledge: vi.fn(async () => emptyState),
     promoteTopic: vi.fn(async () => emptyState)
   };
 }
