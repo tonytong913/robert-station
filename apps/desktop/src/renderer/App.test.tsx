@@ -386,7 +386,7 @@ describe("App content loop", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
 
-    expect(await screen.findByText("Knowledge extracted")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Knowledge extracted");
     fireEvent.click(screen.getByRole("button", { name: "Knowledge" }));
     expect(await screen.findByText(/Review lesson:/)).toBeInTheDocument();
     expect(screen.getByText(/review performance/)).toBeInTheDocument();
@@ -399,7 +399,9 @@ describe("App content loop", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
 
-    expect(await screen.findByText("Archive this project before extracting review knowledge.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Archive this project before extracting review knowledge."
+    );
   });
 
   it("shows an inline error and keeps the review report when review knowledge extraction fails", async () => {
@@ -414,7 +416,7 @@ describe("App content loop", () => {
     await screen.findByText("Review Report v1");
     fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
 
-    expect(await screen.findByText("Could not extract review knowledge. Try again.")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not extract review knowledge. Try again.");
     expect(screen.getByText("Review Report v1")).toBeInTheDocument();
   });
 

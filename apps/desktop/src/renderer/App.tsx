@@ -20,6 +20,7 @@ import {
 const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio", "Knowledge"] as const;
 
 type Screen = (typeof workflowStages)[number];
+type ReviewKnowledgeResult = { kind: "success" | "blocked"; text: string };
 
 export function App(): ReactElement {
   const isMountedRef = useRef(false);
@@ -48,7 +49,7 @@ export function App(): ReactElement {
   const [isGeneratingReviewReport, setIsGeneratingReviewReport] = useState(false);
   const [reviewReportError, setReviewReportError] = useState<string | null>(null);
   const [isExtractingReviewKnowledge, setIsExtractingReviewKnowledge] = useState(false);
-  const [reviewKnowledgeMessage, setReviewKnowledgeMessage] = useState<string | null>(null);
+  const [reviewKnowledgeResult, setReviewKnowledgeResult] = useState<ReviewKnowledgeResult | null>(null);
   const [reviewKnowledgeError, setReviewKnowledgeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -142,7 +143,7 @@ export function App(): ReactElement {
     setIsGeneratingReviewReport(false);
     setReviewReportError(null);
     setIsExtractingReviewKnowledge(false);
-    setReviewKnowledgeMessage(null);
+    setReviewKnowledgeResult(null);
     setReviewKnowledgeError(null);
   }, [selectedPublishRecordId]);
 
@@ -361,23 +362,27 @@ export function App(): ReactElement {
       return;
     }
 
-    const projectId = selectedProject?.id ?? null;
-
     setIsExtractingReviewKnowledge(true);
-    setReviewKnowledgeMessage(null);
+    setReviewKnowledgeResult(null);
     setReviewKnowledgeError(null);
 
     try {
       const nextState = await extractPersistedReviewKnowledge(reviewReportId);
       if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
+        const reportProjectId =
+          nextState.reviewReports.find((report) => report.id === reviewReportId)?.contentProjectId ?? null;
         const hasReviewKnowledge = nextState.knowledgeItems.some(
           (item) =>
-            item.contentProjectId === projectId &&
+            item.contentProjectId === reportProjectId &&
             item.tags.includes("review") &&
             item.tags.includes("performance")
         );
         setContentLoop(nextState);
-        setReviewKnowledgeMessage(hasReviewKnowledge ? "Knowledge extracted" : "Archive this project before extracting review knowledge.");
+        setReviewKnowledgeResult(
+          hasReviewKnowledge
+            ? { kind: "success", text: "Knowledge extracted" }
+            : { kind: "blocked", text: "Archive this project before extracting review knowledge." }
+        );
       }
     } catch {
       if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
@@ -834,7 +839,14 @@ export function App(): ReactElement {
                                   >
                                     {isExtractingReviewKnowledge ? "Extracting..." : "Extract knowledge"}
                                   </button>
-                                  {reviewKnowledgeMessage ? <p>{reviewKnowledgeMessage}</p> : null}
+                                  {reviewKnowledgeResult?.kind === "success" ? (
+                                    <p role="status">{reviewKnowledgeResult.text}</p>
+                                  ) : null}
+                                  {reviewKnowledgeResult?.kind === "blocked" ? (
+                                    <p className="inline-error" role="alert">
+                                      {reviewKnowledgeResult.text}
+                                    </p>
+                                  ) : null}
                                   {reviewKnowledgeError ? (
                                     <p className="inline-error" role="alert">
                                       {reviewKnowledgeError}
