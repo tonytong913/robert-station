@@ -7,6 +7,7 @@ import {
   archivePersistedProject,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
+  generatePersistedReviewReport,
   generatePersistedTopics,
   importPersistedMetricCsv,
   loadPersistedContentLoop,
@@ -41,6 +42,8 @@ export function App(): ReactElement {
   const [isSavingMetricImport, setIsSavingMetricImport] = useState(false);
   const [metricImportError, setMetricImportError] = useState<string | null>(null);
   const [metricSaveError, setMetricSaveError] = useState<string | null>(null);
+  const [isGeneratingReviewReport, setIsGeneratingReviewReport] = useState(false);
+  const [reviewReportError, setReviewReportError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -85,6 +88,11 @@ export function App(): ReactElement {
       ? contentLoop.metricSnapshots.filter((snapshot) => snapshot.publishRecordId === selectedPublishRecord.id)
       : [];
   const selectedLatestMetricSnapshot = selectedMetricSnapshots[0] ?? null;
+  const selectedReviewReports =
+    selectedPublishRecord && contentLoop
+      ? contentLoop.reviewReports.filter((report) => report.publishRecordId === selectedPublishRecord.id)
+      : [];
+  const selectedLatestReviewReport = selectedReviewReports[0] ?? null;
   const matchedMetricImportPreviewRows =
     contentLoop?.metricImportPreview?.rows.filter((row) => row.status === "matched") ?? [];
   const invalidMetricImportPreviewRows =
@@ -300,6 +308,30 @@ export function App(): ReactElement {
     } finally {
       if (isMountedRef.current) {
         setIsSavingMetricImport(false);
+      }
+    }
+  }
+
+  async function handleGenerateReviewReport(publishRecordId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    setIsGeneratingReviewReport(true);
+    setReviewReportError(null);
+
+    try {
+      const nextState = await generatePersistedReviewReport(publishRecordId);
+      if (isMountedRef.current) {
+        setContentLoop(nextState);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setReviewReportError("Could not generate review report. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsGeneratingReviewReport(false);
       }
     }
   }
@@ -647,52 +679,103 @@ export function App(): ReactElement {
                           </div>
                         ) : null}
                         {selectedPublishRecord ? (
-                          <section className="metrics-import-panel" aria-label="Metrics import">
-                            <h3>Metrics import</h3>
-                            <button disabled={isImportingMetrics} onClick={() => void handleImportMetricCsv()} type="button">
-                              {isImportingMetrics ? "Importing..." : "Import metrics CSV"}
-                            </button>
-                            {metricImportError ? (
-                              <p className="inline-error" role="alert">
-                                {metricImportError}
-                              </p>
-                            ) : null}
-                            {contentLoop.metricImportPreview ? (
-                              <div className="metric-import-preview">
-                                <p>
-                                  {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"} in
-                                  this import
+                          <>
+                            <section className="metrics-import-panel" aria-label="Metrics import">
+                              <h3>Metrics import</h3>
+                              <button
+                                disabled={isImportingMetrics}
+                                onClick={() => void handleImportMetricCsv()}
+                                type="button"
+                              >
+                                {isImportingMetrics ? "Importing..." : "Import metrics CSV"}
+                              </button>
+                              {metricImportError ? (
+                                <p className="inline-error" role="alert">
+                                  {metricImportError}
                                 </p>
-                                <p>
-                                  {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
+                              ) : null}
+                              {contentLoop.metricImportPreview ? (
+                                <div className="metric-import-preview">
+                                  <p>
+                                    {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"}{" "}
+                                    in this import
+                                  </p>
+                                  <p>
+                                    {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
+                                  </p>
+                                  {matchedMetricImportPreviewRows.map((row) => (
+                                    <p key={row.rowNumber}>
+                                      Row {row.rowNumber}: {row.url || row.publishRecordId}
+                                    </p>
+                                  ))}
+                                  {invalidMetricImportPreviewRows.map((row) => (
+                                    <p key={row.rowNumber}>
+                                      Row {row.rowNumber}: {row.error}
+                                    </p>
+                                  ))}
+                                  {matchedMetricImportRows > 0 ? (
+                                    <button
+                                      disabled={isImportingMetrics || isSavingMetricImport}
+                                      onClick={() => void handleSaveMetricImport()}
+                                      type="button"
+                                    >
+                                      {isSavingMetricImport ? "Saving..." : "Save imported metrics"}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              {metricSaveError ? (
+                                <p className="inline-error" role="alert">
+                                  {metricSaveError}
                                 </p>
-                                {matchedMetricImportPreviewRows.map((row) => (
-                                  <p key={row.rowNumber}>
-                                    Row {row.rowNumber}: {row.url || row.publishRecordId}
-                                  </p>
-                                ))}
-                                {invalidMetricImportPreviewRows.map((row) => (
-                                  <p key={row.rowNumber}>
-                                    Row {row.rowNumber}: {row.error}
-                                  </p>
-                                ))}
-                                {matchedMetricImportRows > 0 ? (
-                                  <button
-                                    disabled={isImportingMetrics || isSavingMetricImport}
-                                    onClick={() => void handleSaveMetricImport()}
-                                    type="button"
-                                  >
-                                    {isSavingMetricImport ? "Saving..." : "Save imported metrics"}
-                                  </button>
-                                ) : null}
-                              </div>
-                            ) : null}
-                            {metricSaveError ? (
-                              <p className="inline-error" role="alert">
-                                {metricSaveError}
-                              </p>
-                            ) : null}
-                          </section>
+                              ) : null}
+                            </section>
+                            <section className="review-report-panel" aria-label="Review report">
+                              <h3>Review report</h3>
+                              <button
+                                disabled={isGeneratingReviewReport}
+                                onClick={() => void handleGenerateReviewReport(selectedPublishRecord.id)}
+                                type="button"
+                              >
+                                {isGeneratingReviewReport ? "Generating..." : "Generate review report"}
+                              </button>
+                              {reviewReportError ? (
+                                <p className="inline-error" role="alert">
+                                  {reviewReportError}
+                                </p>
+                              ) : null}
+                              {selectedLatestReviewReport ? (
+                                <article className="review-report-card">
+                                  <p className="eyebrow">Review Report v{selectedLatestReviewReport.version}</p>
+                                  <p>{selectedLatestReviewReport.summary}</p>
+                                  <h4>Highlights</h4>
+                                  <ul>
+                                    {selectedLatestReviewReport.highlights.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                  <h4>Underperforming signals</h4>
+                                  <ul>
+                                    {selectedLatestReviewReport.underperformingSignals.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                  <h4>Likely causes</h4>
+                                  <ul>
+                                    {selectedLatestReviewReport.likelyCauses.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                  <h4>Next actions</h4>
+                                  <ul>
+                                    {selectedLatestReviewReport.nextActions.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                </article>
+                              ) : null}
+                            </section>
+                          </>
                         ) : null}
                       </section>
                     </>

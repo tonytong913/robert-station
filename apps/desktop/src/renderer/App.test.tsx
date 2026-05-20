@@ -354,6 +354,27 @@ describe("App content loop", () => {
     expect(screen.getByRole("button", { name: "Save imported metrics" })).toBeEnabled();
   });
 
+  it("generates and displays a review report for the selected publish record", async () => {
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+
+    expect(await screen.findByText("Review Report v1")).toBeInTheDocument();
+    expect(screen.getByText(/No imported metrics are available yet|reached/i)).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledOnce();
+  });
+
+  it("shows an inline error and keeps current content when review generation fails", async () => {
+    window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => {
+      throw new Error("Review failed");
+    });
+
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+
+    expect(await screen.findByText("Could not generate review report. Try again.")).toBeInTheDocument();
+    expect(screen.getByText("Xiaohongshu Package")).toBeInTheDocument();
+  });
+
   it("archives the selected project and shows archive status", async () => {
     render(<App />);
 
