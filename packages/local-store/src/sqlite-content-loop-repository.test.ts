@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { createEntityId } from "@robert-station/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SqliteContentLoopRepository } from "./sqlite-content-loop-repository";
 
@@ -34,6 +35,7 @@ describe("SqliteContentLoopRepository", () => {
     expect(firstLoad.publishRecords).toHaveLength(0);
     expect(firstLoad.metricSnapshots).toHaveLength(0);
     expect(firstLoad.metricImportPreview).toBeNull();
+    expect(firstLoad.reviewReports).toHaveLength(0);
     expect(firstLoad.archiveRecords).toHaveLength(0);
     expect(firstLoad.knowledgeItems).toHaveLength(0);
     expect(secondLoad).toEqual(firstLoad);
@@ -60,6 +62,7 @@ describe("SqliteContentLoopRepository", () => {
         "platform_packages",
         "publish_records",
         "metric_snapshots",
+        "review_reports",
         "archive_records",
         "knowledge_items"
       ])
@@ -414,6 +417,54 @@ describe("SqliteContentLoopRepository", () => {
     expect(new Date(generatedTopic?.updatedAt ?? 0).getTime()).toBeGreaterThan(
       new Date("2030-01-01T00:00:00.000Z").getTime()
     );
+  });
+
+  it("persists review reports across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPublish = await publishXiaohongshuDemo(firstRepository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    expect(publishRecord).toBeDefined();
+
+    await firstRepository.generateReviewReport(publishRecord!.id);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const reloaded = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(reloaded.reviewReports).toHaveLength(1);
+    expect(reloaded.reviewReports[0]).toMatchObject({
+      publishRecordId: publishRecord!.id,
+      contentProjectId: publishRecord!.contentProjectId,
+      version: 1
+    });
+    expect(reloaded.projects.find((project) => project.id === publishRecord!.contentProjectId)?.status).toBe("reviewed");
+  });
+
+  it("creates increasing SQLite review report versions", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    expect(publishRecord).toBeDefined();
+
+    await repository.generateReviewReport(publishRecord!.id);
+    const afterSecondReview = await repository.generateReviewReport(publishRecord!.id);
+    repository.close();
+
+    expect(afterSecondReview.reviewReports.map((report) => report.version)).toEqual([2, 1]);
+    expect(afterSecondReview.reviewReports[0]?.id).toBe(createEntityId("review-report", `${publishRecord!.id}-v2`));
+  });
+
+  it("does not insert a SQLite review report for a missing publish record", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const before = await repository.loadContentLoop();
+    const afterReview = await repository.generateReviewReport("publish-record_missing");
+    repository.close();
+
+    expect(afterReview.reviewReports).toHaveLength(0);
+    expect(afterReview.projects).toEqual(before.projects);
   });
 
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {

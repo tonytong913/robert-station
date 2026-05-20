@@ -8,6 +8,7 @@ import {
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
+  generateMockReviewReport,
   generateMockTopics,
   generateMockXiaohongshuPackage
 } from "@robert-station/core";
@@ -26,6 +27,7 @@ import type {
   PlatformPackage,
   PlatformPackageCheck,
   PublishRecord,
+  ReviewReport,
   SourceReference,
   SourceReferenceKind,
   Topic,
@@ -136,6 +138,22 @@ interface MetricSnapshotRow {
   comments: number;
   shares: number;
   note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ReviewReportRow {
+  id: string;
+  workspace_id: string;
+  content_project_id: string;
+  publish_record_id: string;
+  metric_snapshot_id: string | null;
+  version: number;
+  summary: string;
+  highlights_json: string;
+  underperforming_signals_json: string;
+  likely_causes_json: string;
+  next_actions_json: string;
   created_at: string;
   updated_at: string;
 }
@@ -325,6 +343,50 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     return this.loadState();
   }
 
+  async generateReviewReport(publishRecordId: string): Promise<PersistedContentLoopState> {
+    const state = this.loadState();
+    const publishRecord = state.publishRecords.find((candidate) => candidate.id === publishRecordId);
+
+    if (!publishRecord) {
+      return state;
+    }
+
+    const project = state.projects.find((candidate) => candidate.id === publishRecord.contentProjectId);
+
+    if (!project) {
+      return state;
+    }
+
+    const platformPackage =
+      state.platformPackages.find((candidate) => candidate.id === publishRecord.platformPackageId) ?? null;
+    const metricSnapshot =
+      state.metricSnapshots
+        .filter((candidate) => candidate.publishRecordId === publishRecord.id)
+        .sort(compareMetricSnapshots)[0] ?? null;
+    const version =
+      Math.max(
+        0,
+        ...state.reviewReports
+          .filter((candidate) => candidate.publishRecordId === publishRecord.id)
+          .map((candidate) => candidate.version)
+      ) + 1;
+    const reviewReport = generateMockReviewReport({
+      project,
+      publishRecord,
+      platformPackage,
+      metricSnapshot,
+      version,
+      now: new Date()
+    });
+
+    this.runTransaction(() => {
+      this.upsertContentProject({ ...project, status: "reviewed", updatedAt: reviewReport.updatedAt });
+      this.insertReviewReport(reviewReport);
+    });
+
+    return this.loadState(project.id);
+  }
+
   async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
     const project = this.getContentProject(projectId);
 
@@ -460,6 +522,9 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const metricSnapshots = this.database
       .prepare("SELECT * FROM metric_snapshots ORDER BY snapshot_at DESC, updated_at DESC, id ASC;")
       .all() as unknown as MetricSnapshotRow[];
+    const reviewReports = this.database
+      .prepare("SELECT * FROM review_reports ORDER BY updated_at DESC, version DESC, id ASC;")
+      .all() as unknown as ReviewReportRow[];
     const archiveRecords = this.database
       .prepare("SELECT * FROM archive_records ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as ArchiveRecordRow[];
@@ -481,6 +546,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       publishRecords: publishRecords.map(mapPublishRecordRow),
       metricSnapshots: metricSnapshots.map(mapMetricSnapshotRow),
       metricImportPreview: this.metricImportPreview ? cloneMetricImportPreview(this.metricImportPreview) : null,
+      reviewReports: reviewReports.map(mapReviewReportRow),
       archiveRecords: archiveRecords.map(mapArchiveRecordRow),
       knowledgeItems: knowledgeItems.map(mapKnowledgeItemRow),
       selectedProjectId: selectedProject?.id ?? null
@@ -600,6 +666,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            SELECT snapshot_at AS updated_at FROM metric_snapshots
            UNION ALL
            SELECT updated_at FROM metric_snapshots
+           UNION ALL
+           SELECT updated_at FROM review_reports
            UNION ALL
            SELECT updated_at FROM archive_records
            UNION ALL
@@ -894,6 +962,33 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       );
   }
 
+  private insertReviewReport(reviewReport: ReviewReport): void {
+    this.database
+      .prepare(
+        `INSERT INTO review_reports (
+          id, workspace_id, content_project_id, publish_record_id, metric_snapshot_id,
+          version, summary, highlights_json, underperforming_signals_json, likely_causes_json,
+          next_actions_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+      )
+      .run(
+        reviewReport.id,
+        reviewReport.workspaceId,
+        reviewReport.contentProjectId,
+        reviewReport.publishRecordId,
+        reviewReport.metricSnapshotId ?? null,
+        reviewReport.version,
+        reviewReport.summary,
+        JSON.stringify(reviewReport.highlights),
+        JSON.stringify(reviewReport.underperformingSignals),
+        JSON.stringify(reviewReport.likelyCauses),
+        JSON.stringify(reviewReport.nextActions),
+        reviewReport.createdAt,
+        reviewReport.updatedAt
+      );
+  }
+
   private upsertArchiveRecord(archiveRecord: ArchiveRecord): void {
     this.database
       .prepare(
@@ -1077,6 +1172,24 @@ function mapMetricSnapshotRow(row: MetricSnapshotRow): MetricSnapshot {
   };
 }
 
+function mapReviewReportRow(row: ReviewReportRow): ReviewReport {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    contentProjectId: row.content_project_id,
+    publishRecordId: row.publish_record_id,
+    ...(row.metric_snapshot_id ? { metricSnapshotId: row.metric_snapshot_id } : {}),
+    version: row.version,
+    summary: row.summary,
+    highlights: JSON.parse(row.highlights_json) as string[],
+    underperformingSignals: JSON.parse(row.underperforming_signals_json) as string[],
+    likelyCauses: JSON.parse(row.likely_causes_json) as string[],
+    nextActions: JSON.parse(row.next_actions_json) as string[],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 function mapArchiveRecordRow(row: ArchiveRecordRow): ArchiveRecord {
   return {
     id: row.id,
@@ -1115,4 +1228,12 @@ function mapKnowledgeItemRow(row: KnowledgeItemRow): KnowledgeItem {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function compareMetricSnapshots(left: MetricSnapshot, right: MetricSnapshot): number {
+  return (
+    right.snapshotAt.localeCompare(left.snapshotAt) ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    left.id.localeCompare(right.id)
+  );
 }

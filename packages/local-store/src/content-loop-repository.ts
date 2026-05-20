@@ -37,7 +37,7 @@ export interface PersistedContentLoopState {
   publishRecords: PublishRecord[];
   metricSnapshots: MetricSnapshot[];
   metricImportPreview: MetricImportPreview | null;
-  reviewReports?: ReviewReport[];
+  reviewReports: ReviewReport[];
   archiveRecords: ArchiveRecord[];
   knowledgeItems: KnowledgeItem[];
   selectedProjectId: string | null;
@@ -51,7 +51,7 @@ export interface ContentLoopRepository {
   recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState>;
   previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState>;
   saveMetricImport(): Promise<PersistedContentLoopState>;
-  generateReviewReport?(publishRecordId: string): Promise<PersistedContentLoopState>;
+  generateReviewReport(publishRecordId: string): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
