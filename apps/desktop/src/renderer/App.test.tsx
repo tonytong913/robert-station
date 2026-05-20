@@ -360,6 +360,7 @@ describe("App content loop", () => {
     fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
 
     expect(await screen.findByText("Review Report v1")).toBeInTheDocument();
+    expect(screen.getByText(/Generated /)).toBeInTheDocument();
     expect(screen.getByText(/No imported metrics are available yet|reached/i)).toBeInTheDocument();
     expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledOnce();
   });

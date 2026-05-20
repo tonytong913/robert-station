@@ -755,6 +755,7 @@ export function App(): ReactElement {
                               {selectedLatestReviewReport ? (
                                 <article className="review-report-card">
                                   <p className="eyebrow">Review Report v{selectedLatestReviewReport.version}</p>
+                                  <p>Generated {selectedLatestReviewReport.createdAt}</p>
                                   <p>{selectedLatestReviewReport.summary}</p>
                                   <h4>Highlights</h4>
                                   <ul>
