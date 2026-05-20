@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   archivePersistedProject,
+  extractPersistedReviewKnowledge,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedReviewReport,
@@ -23,6 +24,7 @@ type Screen = (typeof workflowStages)[number];
 export function App(): ReactElement {
   const isMountedRef = useRef(false);
   const selectedPublishRecordIdRef = useRef<string | null>(null);
+  const selectedReviewReportIdRef = useRef<string | null>(null);
   const [screen, setScreen] = useState<Screen>("Dashboard");
   const [contentLoop, setContentLoop] = useState<PersistedContentLoopState | null>(null);
   const [topicGenerationColumn, setTopicGenerationColumn] = useState<ContentColumnSlug>("ai");
@@ -45,6 +47,9 @@ export function App(): ReactElement {
   const [metricSaveError, setMetricSaveError] = useState<string | null>(null);
   const [isGeneratingReviewReport, setIsGeneratingReviewReport] = useState(false);
   const [reviewReportError, setReviewReportError] = useState<string | null>(null);
+  const [isExtractingReviewKnowledge, setIsExtractingReviewKnowledge] = useState(false);
+  const [reviewKnowledgeMessage, setReviewKnowledgeMessage] = useState<string | null>(null);
+  const [reviewKnowledgeError, setReviewKnowledgeError] = useState<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -136,7 +141,14 @@ export function App(): ReactElement {
     selectedPublishRecordIdRef.current = selectedPublishRecordId;
     setIsGeneratingReviewReport(false);
     setReviewReportError(null);
+    setIsExtractingReviewKnowledge(false);
+    setReviewKnowledgeMessage(null);
+    setReviewKnowledgeError(null);
   }, [selectedPublishRecordId]);
+
+  useEffect(() => {
+    selectedReviewReportIdRef.current = selectedLatestReviewReport?.id ?? null;
+  }, [selectedLatestReviewReport?.id]);
 
   async function handlePromote(topicId: string): Promise<void> {
     const nextState = await promotePersistedTopic(topicId);
@@ -340,6 +352,40 @@ export function App(): ReactElement {
     } finally {
       if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
         setIsGeneratingReviewReport(false);
+      }
+    }
+  }
+
+  async function handleExtractReviewKnowledge(reviewReportId: string): Promise<void> {
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    const projectId = selectedProject?.id ?? null;
+
+    setIsExtractingReviewKnowledge(true);
+    setReviewKnowledgeMessage(null);
+    setReviewKnowledgeError(null);
+
+    try {
+      const nextState = await extractPersistedReviewKnowledge(reviewReportId);
+      if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
+        const hasReviewKnowledge = nextState.knowledgeItems.some(
+          (item) =>
+            item.contentProjectId === projectId &&
+            item.tags.includes("review") &&
+            item.tags.includes("performance")
+        );
+        setContentLoop(nextState);
+        setReviewKnowledgeMessage(hasReviewKnowledge ? "Knowledge extracted" : "Archive this project before extracting review knowledge.");
+      }
+    } catch {
+      if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
+        setReviewKnowledgeError("Could not extract review knowledge. Try again.");
+      }
+    } finally {
+      if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
+        setIsExtractingReviewKnowledge(false);
       }
     }
   }
@@ -781,6 +827,19 @@ export function App(): ReactElement {
                                       <li key={item}>{item}</li>
                                     ))}
                                   </ul>
+                                  <button
+                                    disabled={isExtractingReviewKnowledge}
+                                    onClick={() => void handleExtractReviewKnowledge(selectedLatestReviewReport.id)}
+                                    type="button"
+                                  >
+                                    {isExtractingReviewKnowledge ? "Extracting..." : "Extract knowledge"}
+                                  </button>
+                                  {reviewKnowledgeMessage ? <p>{reviewKnowledgeMessage}</p> : null}
+                                  {reviewKnowledgeError ? (
+                                    <p className="inline-error" role="alert">
+                                      {reviewKnowledgeError}
+                                    </p>
+                                  ) : null}
                                 </article>
                               ) : null}
                             </section>

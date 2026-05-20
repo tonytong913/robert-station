@@ -397,6 +397,10 @@ button {
   margin: 0;
 }
 
+.review-report-card button {
+  justify-self: start;
+}
+
 .review-report-card ul {
   margin: 0;
   padding-left: 1.1rem;

@@ -377,6 +377,47 @@ describe("App content loop", () => {
     expect(screen.getByText("Xiaohongshu Package")).toBeInTheDocument();
   });
 
+  it("extracts review knowledge after a project is archived and lists it in Knowledge", async () => {
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
+    await screen.findByText("Archived");
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+    await screen.findByText("Review Report v1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
+
+    expect(await screen.findByText("Knowledge extracted")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Knowledge" }));
+    expect(await screen.findByText(/Review lesson:/)).toBeInTheDocument();
+    expect(screen.getByText(/review performance/)).toBeInTheDocument();
+  });
+
+  it("shows archive-required message when extracting review knowledge before archive", async () => {
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+    await screen.findByText("Review Report v1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
+
+    expect(await screen.findByText("Archive this project before extracting review knowledge.")).toBeInTheDocument();
+  });
+
+  it("shows an inline error and keeps the review report when review knowledge extraction fails", async () => {
+    window.robertStation.contentLoop.extractReviewKnowledge = vi.fn(async () => {
+      throw new Error("Extract failed");
+    });
+
+    await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "Archive project" }));
+    await screen.findByText("Archived");
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+    await screen.findByText("Review Report v1");
+    fireEvent.click(screen.getByRole("button", { name: "Extract knowledge" }));
+
+    expect(await screen.findByText("Could not extract review knowledge. Try again.")).toBeInTheDocument();
+    expect(screen.getByText("Review Report v1")).toBeInTheDocument();
+  });
+
   it("clears review generation errors when switching publish records", async () => {
     window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => {
       throw new Error("Review failed");
