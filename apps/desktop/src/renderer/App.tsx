@@ -330,7 +330,7 @@ export function App(): ReactElement {
 
     try {
       const nextState = await generatePersistedReviewReport(publishRecordId);
-      if (isMountedRef.current) {
+      if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
         setContentLoop(nextState);
       }
     } catch {

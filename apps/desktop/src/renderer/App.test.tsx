@@ -1,3 +1,4 @@
+import type { PersistedContentLoopState } from "@robert-station/local-store";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -396,6 +397,55 @@ describe("App content loop", () => {
     });
   });
 
+  it("ignores stale successful review generation after switching publish records", async () => {
+    await publishXiaohongshuPackage();
+    const firstSelectedState = await window.robertStation.contentLoop.load();
+    const firstProject = firstSelectedState.projects.find(
+      (project) => project.title === "How to build a personal AI workstation for daily content work"
+    );
+    const firstPublishRecord = firstSelectedState.publishRecords.find(
+      (record) => record.url === "https://www.xiaohongshu.com/explore/demo"
+    );
+    const deferredReview = createDeferred<PersistedContentLoopState>();
+    window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => deferredReview.promise);
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate review report" }));
+    expect(screen.getByRole("button", { name: "Generating..." })).toBeDisabled();
+
+    await promoteAndPublishXiaohongshuPackage(
+      "A simple family finance dashboard for monthly decisions",
+      "https://www.xiaohongshu.com/explore/finance"
+    );
+    expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+
+    deferredReview.resolve({
+      ...firstSelectedState,
+      selectedProjectId: firstProject?.id ?? firstSelectedState.selectedProjectId,
+      reviewReports: [
+        {
+          id: "review-report_stale-first-record-v1",
+          workspaceId: "workspace_robert-station",
+          contentProjectId: firstProject?.id ?? "project_topic-ai-local-workstation",
+          publishRecordId: firstPublishRecord?.id ?? "publish-record_stale-first-record",
+          version: 1,
+          summary: "Stale first project report summary",
+          highlights: ["First stale highlight"],
+          underperformingSignals: ["First stale signal"],
+          likelyCauses: ["First stale cause"],
+          nextActions: ["First stale action"],
+          createdAt: "2026-05-20T09:00:00.000Z",
+          updatedAt: "2026-05-20T09:00:00.000Z"
+        }
+      ]
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("How to build a personal AI workstation for daily content work")).not.toBeInTheDocument();
+    expect(screen.queryByText("Stale first project report summary")).not.toBeInTheDocument();
+  });
+
   it("archives the selected project and shows archive status", async () => {
     render(<App />);
 
@@ -481,4 +531,13 @@ async function promoteAndPublishXiaohongshuPackage(topicName: string, publishUrl
   fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
 
   await screen.findByText("Published");
+}
+
+function createDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return { promise, resolve };
 }
