@@ -6,6 +6,7 @@ export * from "./ids";
 export * from "./manual-publish";
 export * from "./metrics-import";
 export * from "./publish-assistant";
+export * from "./review-knowledge";
 export * from "./review-report";
 export * from "./topic-assistant";
 export * from "./types";
