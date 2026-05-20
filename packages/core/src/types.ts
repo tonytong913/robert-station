@@ -176,6 +176,22 @@ export interface MetricSnapshot extends MetricValues {
   updatedAt: string;
 }
 
+export interface ReviewReport {
+  id: EntityId;
+  workspaceId: EntityId;
+  contentProjectId: EntityId;
+  publishRecordId: EntityId;
+  metricSnapshotId?: EntityId;
+  version: number;
+  summary: string;
+  highlights: string[];
+  underperformingSignals: string[];
+  likelyCauses: string[];
+  nextActions: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MetricCsvImportInput {
   sourceFileName: string;
   csvText: string;
