@@ -3,6 +3,7 @@ import {
   archivePersistedProject,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
+  generatePersistedReviewReport,
   generatePersistedTopics,
   importPersistedMetricCsv,
   loadPersistedContentLoop,
@@ -77,5 +78,11 @@ describe("content loop loader", () => {
     await savePersistedMetricImport();
 
     expect(window.robertStation.contentLoop.saveMetricImport).toHaveBeenCalledOnce();
+  });
+
+  it("generates review reports through preload API", async () => {
+    await generatePersistedReviewReport("publish-record_demo");
+
+    expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledWith("publish-record_demo");
   });
 });

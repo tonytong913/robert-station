@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerContentLoopIpc } from "../main/content-loop-service";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
@@ -154,6 +155,26 @@ describe("registerContentLoopIpc", () => {
     expect(repository.saveMetricImport).toHaveBeenCalledOnce();
   });
 
+  it("rejects invalid review report publish record ids before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getGenerateReviewReportHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, "")).rejects.toThrow("Invalid publish record id.");
+    expect(repository.generateReviewReport).not.toHaveBeenCalled();
+  });
+
+  it("generates a review report through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getGenerateReviewReportHandler();
+    await handler({} as IpcMainInvokeEvent, "publish-record_demo");
+
+    expect(repository.generateReviewReport).toHaveBeenCalledWith("publish-record_demo");
+  });
+
   it("rejects unsupported metric CSV file extensions before calling the repository", async () => {
     const repository = createRepository();
     registerContentLoopIpc(repository);
@@ -258,4 +279,19 @@ function getSaveMetricImportHandler(): (event: IpcMainInvokeEvent) => Promise<un
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent) => Promise<unknown>;
+}
+
+function getGenerateReviewReportHandler(): (
+  event: IpcMainInvokeEvent,
+  publishRecordId: unknown
+) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Generate review report IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, publishRecordId: unknown) => Promise<unknown>;
 }

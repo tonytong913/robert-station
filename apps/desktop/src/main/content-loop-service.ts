@@ -7,6 +7,7 @@ import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
+  CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
@@ -85,6 +86,13 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
     }
   });
   ipcMain.handle(CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL, async () => repository.saveMetricImport());
+  ipcMain.handle(CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL, async (_event, publishRecordId: unknown) => {
+    if (typeof publishRecordId !== "string" || publishRecordId.length === 0) {
+      throw new Error("Invalid publish record id.");
+    }
+
+    return repository.generateReviewReport(publishRecordId);
+  });
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)
   );

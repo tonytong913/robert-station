@@ -5,6 +5,7 @@ import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
+  CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
   CONTENT_LOOP_LOAD_CHANNEL,
@@ -31,6 +32,8 @@ contextBridge.exposeInMainWorld("robertStation", {
       ipcRenderer.invoke(CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL) as Promise<PersistedContentLoopState>,
     saveMetricImport: () =>
       ipcRenderer.invoke(CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL) as Promise<PersistedContentLoopState>,
+    generateReviewReport: (publishRecordId: string) =>
+      ipcRenderer.invoke(CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL, publishRecordId) as Promise<PersistedContentLoopState>,
     promoteTopic: (topicId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, topicId) as Promise<PersistedContentLoopState>
   }

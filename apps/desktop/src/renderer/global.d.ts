@@ -14,6 +14,7 @@ declare global {
         recordManualPublish: (input: ManualPublishInput) => Promise<PersistedContentLoopState>;
         importMetricCsv: () => Promise<PersistedContentLoopState>;
         saveMetricImport: () => Promise<PersistedContentLoopState>;
+        generateReviewReport: (publishRecordId: string) => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
       };
     };
