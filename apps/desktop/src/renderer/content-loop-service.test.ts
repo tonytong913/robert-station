@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerContentLoopIpc } from "../main/content-loop-service";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
@@ -175,6 +176,26 @@ describe("registerContentLoopIpc", () => {
     expect(repository.generateReviewReport).toHaveBeenCalledWith("publish-record_demo");
   });
 
+  it("rejects invalid review knowledge ids before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getExtractReviewKnowledgeHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, "")).rejects.toThrow("Invalid review report id.");
+    expect(repository.extractReviewKnowledge).not.toHaveBeenCalled();
+  });
+
+  it("extracts review knowledge through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getExtractReviewKnowledgeHandler();
+    await handler({} as IpcMainInvokeEvent, "review-report_demo");
+
+    expect(repository.extractReviewKnowledge).toHaveBeenCalledWith("review-report_demo");
+  });
+
   it("rejects unsupported metric CSV file extensions before calling the repository", async () => {
     const repository = createRepository();
     registerContentLoopIpc(repository);
@@ -295,4 +316,19 @@ function getGenerateReviewReportHandler(): (
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, publishRecordId: unknown) => Promise<unknown>;
+}
+
+function getExtractReviewKnowledgeHandler(): (
+  event: IpcMainInvokeEvent,
+  reviewReportId: unknown
+) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Extract review knowledge IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, reviewReportId: unknown) => Promise<unknown>;
 }

@@ -28,6 +28,7 @@ beforeEach(() => {
       ),
       saveMetricImport: vi.fn(async () => repository.saveMetricImport()),
       generateReviewReport: vi.fn(async (publishRecordId: string) => repository.generateReviewReport(publishRecordId)),
+      extractReviewKnowledge: vi.fn(async (reviewReportId: string) => repository.extractReviewKnowledge(reviewReportId)),
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
     }
   };

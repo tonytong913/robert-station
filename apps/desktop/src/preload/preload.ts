@@ -3,6 +3,7 @@ import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-st
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
@@ -34,6 +35,8 @@ contextBridge.exposeInMainWorld("robertStation", {
       ipcRenderer.invoke(CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL) as Promise<PersistedContentLoopState>,
     generateReviewReport: (publishRecordId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL, publishRecordId) as Promise<PersistedContentLoopState>,
+    extractReviewKnowledge: (reviewReportId: string) =>
+      ipcRenderer.invoke(CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL, reviewReportId) as Promise<PersistedContentLoopState>,
     promoteTopic: (topicId: string) =>
       ipcRenderer.invoke(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, topicId) as Promise<PersistedContentLoopState>
   }

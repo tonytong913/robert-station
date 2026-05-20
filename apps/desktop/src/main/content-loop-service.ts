@@ -5,6 +5,7 @@ import { DEFAULT_COLUMNS, type ContentColumnSlug, type ManualPublishInput, type 
 import type { ContentLoopRepository } from "@robert-station/local-store";
 import {
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
@@ -92,6 +93,13 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
     }
 
     return repository.generateReviewReport(publishRecordId);
+  });
+  ipcMain.handle(CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL, async (_event, reviewReportId: unknown) => {
+    if (typeof reviewReportId !== "string" || reviewReportId.length === 0) {
+      throw new Error("Invalid review report id.");
+    }
+
+    return repository.extractReviewKnowledge(reviewReportId);
   });
   ipcMain.handle(CONTENT_LOOP_PROMOTE_TOPIC_CHANNEL, async (_event, topicId: string) =>
     repository.promoteTopic(topicId)

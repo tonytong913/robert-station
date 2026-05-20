@@ -43,3 +43,7 @@ export async function savePersistedMetricImport(): Promise<PersistedContentLoopS
 export async function generatePersistedReviewReport(publishRecordId: string): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.generateReviewReport(publishRecordId);
 }
+
+export async function extractPersistedReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.extractReviewKnowledge(reviewReportId);
+}

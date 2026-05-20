@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   archivePersistedProject,
+  extractPersistedReviewKnowledge,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedReviewReport,
@@ -84,5 +85,11 @@ describe("content loop loader", () => {
     await generatePersistedReviewReport("publish-record_demo");
 
     expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledWith("publish-record_demo");
+  });
+
+  it("extracts review knowledge through preload API", async () => {
+    await extractPersistedReviewKnowledge("review-report_demo");
+
+    expect(window.robertStation.contentLoop.extractReviewKnowledge).toHaveBeenCalledWith("review-report_demo");
   });
 });
