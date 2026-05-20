@@ -157,6 +157,24 @@ CREATE TABLE IF NOT EXISTS metric_snapshots (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS review_reports (
+  id TEXT PRIMARY KEY,
+  remote_id TEXT,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  content_project_id TEXT NOT NULL REFERENCES content_projects(id),
+  publish_record_id TEXT NOT NULL REFERENCES publish_records(id),
+  metric_snapshot_id TEXT REFERENCES metric_snapshots(id),
+  version INTEGER NOT NULL,
+  summary TEXT NOT NULL,
+  highlights_json TEXT NOT NULL DEFAULT '[]',
+  underperforming_signals_json TEXT NOT NULL DEFAULT '[]',
+  likely_causes_json TEXT NOT NULL DEFAULT '[]',
+  next_actions_json TEXT NOT NULL DEFAULT '[]',
+  sync_status TEXT NOT NULL DEFAULT 'local',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS archive_records (
   id TEXT PRIMARY KEY,
   remote_id TEXT,

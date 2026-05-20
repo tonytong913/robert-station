@@ -6,6 +6,7 @@ import {
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
+  generateMockReviewReport,
   generateMockTopics,
   generateMockXiaohongshuPackage
 } from "@robert-station/core";
@@ -22,6 +23,7 @@ import type {
   Platform,
   PlatformPackage,
   PublishRecord,
+  ReviewReport,
   SourceReference,
   Topic
 } from "@robert-station/core";
@@ -35,6 +37,7 @@ export interface PersistedContentLoopState {
   publishRecords: PublishRecord[];
   metricSnapshots: MetricSnapshot[];
   metricImportPreview: MetricImportPreview | null;
+  reviewReports?: ReviewReport[];
   archiveRecords: ArchiveRecord[];
   knowledgeItems: KnowledgeItem[];
   selectedProjectId: string | null;
@@ -48,6 +51,7 @@ export interface ContentLoopRepository {
   recordManualPublish(input: ManualPublishInput): Promise<PersistedContentLoopState>;
   previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState>;
   saveMetricImport(): Promise<PersistedContentLoopState>;
+  generateReviewReport?(publishRecordId: string): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
@@ -71,6 +75,7 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       publishRecords: [],
       metricSnapshots: [],
       metricImportPreview: null,
+      reviewReports: [],
       archiveRecords: [],
       knowledgeItems: [],
       selectedProjectId: null
@@ -246,6 +251,53 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
     return cloneState(this.state);
   }
 
+  async generateReviewReport(publishRecordId: string): Promise<PersistedContentLoopState> {
+    const publishRecord = this.state.publishRecords.find((candidate) => candidate.id === publishRecordId);
+
+    if (!publishRecord) {
+      return cloneState(this.state);
+    }
+
+    const project = this.state.projects.find((candidate) => candidate.id === publishRecord.contentProjectId);
+
+    if (!project) {
+      return cloneState(this.state);
+    }
+
+    const platformPackage =
+      this.state.platformPackages.find((candidate) => candidate.id === publishRecord.platformPackageId) ?? null;
+    const metricSnapshot =
+      this.state.metricSnapshots
+        .filter((candidate) => candidate.publishRecordId === publishRecord.id)
+        .sort(compareMetricSnapshots)[0] ?? null;
+    const version =
+      Math.max(
+        0,
+        ...(this.state.reviewReports ?? [])
+          .filter((candidate) => candidate.publishRecordId === publishRecord.id)
+          .map((candidate) => candidate.version)
+      ) + 1;
+    const reviewReport = generateMockReviewReport({
+      project,
+      publishRecord,
+      platformPackage,
+      metricSnapshot,
+      version,
+      now: new Date()
+    });
+
+    this.state = {
+      ...this.state,
+      projects: this.state.projects.map((candidate) =>
+        candidate.id === project.id ? { ...candidate, status: "reviewed", updatedAt: reviewReport.updatedAt } : candidate
+      ),
+      reviewReports: [reviewReport, ...(this.state.reviewReports ?? [])].sort(compareReviewReports),
+      selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
   async archiveProject(projectId: string): Promise<PersistedContentLoopState> {
     const project = this.state.projects.find((candidate) => candidate.id === projectId);
 
@@ -345,6 +397,14 @@ function compareMetricSnapshots(left: MetricSnapshot, right: MetricSnapshot): nu
   return (
     right.snapshotAt.localeCompare(left.snapshotAt) ||
     right.updatedAt.localeCompare(left.updatedAt) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function compareReviewReports(left: ReviewReport, right: ReviewReport): number {
+  return (
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    right.version - left.version ||
     left.id.localeCompare(right.id)
   );
 }

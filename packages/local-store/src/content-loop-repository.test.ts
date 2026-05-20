@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createEntityId } from "@robert-station/core";
 import { InMemoryContentLoopRepository } from "./content-loop-repository";
 
 describe("InMemoryContentLoopRepository", () => {
@@ -13,6 +14,7 @@ describe("InMemoryContentLoopRepository", () => {
     expect(state.publishRecords).toHaveLength(0);
     expect(state.metricSnapshots).toHaveLength(0);
     expect(state.metricImportPreview).toBeNull();
+    expect(state.reviewReports).toHaveLength(0);
     expect(state.archiveRecords).toHaveLength(0);
     expect(state.knowledgeItems).toHaveLength(0);
     expect(state.selectedProjectId).toBeNull();
@@ -310,6 +312,90 @@ describe("InMemoryContentLoopRepository", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("generates a review report in memory and marks project reviewed", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    const afterSave = await repository.saveMetricImport();
+    const metricSnapshot = afterSave.metricSnapshots[0];
+
+    if (!metricSnapshot) {
+      throw new Error("Expected a saved metric snapshot.");
+    }
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-05-20T12:00:00.000Z"));
+      const afterReview = await repository.generateReviewReport(publishRecord.id);
+      const reviewReports = afterReview.reviewReports ?? [];
+      const report = reviewReports[0];
+
+      expect(reviewReports).toHaveLength(1);
+      expect(report).toMatchObject({
+        id: createEntityId("review-report", `${publishRecord.id}-v1`),
+        publishRecordId: publishRecord.id,
+        metricSnapshotId: metricSnapshot.id,
+        version: 1,
+        updatedAt: "2026-05-20T12:00:00.000Z"
+      });
+      expect(afterReview.projects.find((project) => project.id === publishRecord.contentProjectId)?.status).toBe(
+        "reviewed"
+      );
+      expect(afterReview.projects.find((project) => project.id === publishRecord.contentProjectId)?.updatedAt).toBe(
+        report?.updatedAt
+      );
+      expect(afterReview.selectedProjectId).toBe(publishRecord.contentProjectId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("creates increasing in-memory review report versions", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-05-20T12:00:00.000Z"));
+      await repository.generateReviewReport(publishRecord.id);
+
+      vi.setSystemTime(new Date("2026-05-20T13:00:00.000Z"));
+      const afterSecondReview = await repository.generateReviewReport(publishRecord.id);
+      const reviewReports = afterSecondReview.reviewReports ?? [];
+
+      expect(reviewReports).toHaveLength(2);
+      expect(reviewReports.map((report) => report.version)).toEqual([2, 1]);
+      expect(reviewReports.map((report) => report.id)).toEqual([
+        createEntityId("review-report", `${publishRecord.id}-v2`),
+        createEntityId("review-report", `${publishRecord.id}-v1`)
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not change in-memory state when the publish record is missing for review generation", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const before = await repository.loadContentLoop();
+    const afterReview = await repository.generateReviewReport("publish-record_missing");
+
+    expect(afterReview).toEqual(before);
   });
 
   it("archives a generated platform package in memory", async () => {

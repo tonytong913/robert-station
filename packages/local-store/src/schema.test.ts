@@ -15,6 +15,7 @@ describe("SQLite schema", () => {
       "platform_packages",
       "publish_records",
       "metric_snapshots",
+      "review_reports",
       "archive_records",
       "knowledge_items",
       "assets"
