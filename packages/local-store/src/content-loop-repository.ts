@@ -6,6 +6,7 @@ import {
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
+  generateMockReviewKnowledgeItem,
   generateMockReviewReport,
   generateMockTopics,
   generateMockXiaohongshuPackage
@@ -52,6 +53,7 @@ export interface ContentLoopRepository {
   previewMetricCsvImport(input: MetricCsvImportInput): Promise<PersistedContentLoopState>;
   saveMetricImport(): Promise<PersistedContentLoopState>;
   generateReviewReport(publishRecordId: string): Promise<PersistedContentLoopState>;
+  extractReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
 }
@@ -292,6 +294,51 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
         candidate.id === project.id ? { ...candidate, status: "reviewed", updatedAt: reviewReport.updatedAt } : candidate
       ),
       reviewReports: [reviewReport, ...(this.state.reviewReports ?? [])].sort(compareReviewReports),
+      selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
+  async extractReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState> {
+    const reviewReport = this.state.reviewReports.find((candidate) => candidate.id === reviewReportId);
+
+    if (!reviewReport) {
+      return cloneState(this.state);
+    }
+
+    const project = this.state.projects.find((candidate) => candidate.id === reviewReport.contentProjectId);
+    const archiveRecord = this.state.archiveRecords.find(
+      (candidate) => candidate.contentProjectId === reviewReport.contentProjectId
+    );
+
+    if (!project || !archiveRecord) {
+      return cloneState(this.state);
+    }
+
+    const metricSnapshot = reviewReport.metricSnapshotId
+      ? this.state.metricSnapshots.find((candidate) => candidate.id === reviewReport.metricSnapshotId) ?? null
+      : null;
+    const generatedKnowledgeItem = generateMockReviewKnowledgeItem({
+      project,
+      archiveRecord,
+      reviewReport,
+      metricSnapshot,
+      now: new Date()
+    });
+    const knowledgeItem = {
+      ...generatedKnowledgeItem,
+      createdAt:
+        this.state.knowledgeItems.find((candidate) => candidate.id === generatedKnowledgeItem.id)?.createdAt ??
+        generatedKnowledgeItem.createdAt
+    };
+
+    this.state = {
+      ...this.state,
+      knowledgeItems: [
+        knowledgeItem,
+        ...this.state.knowledgeItems.filter((candidate) => candidate.id !== knowledgeItem.id)
+      ],
       selectedProjectId: project.id
     };
 

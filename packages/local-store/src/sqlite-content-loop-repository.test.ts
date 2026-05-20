@@ -495,6 +495,57 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterReview.projects).toEqual(before.projects);
   });
 
+  it("persists review-derived knowledge across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPublish = await publishXiaohongshuDemo(firstRepository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    expect(publishRecord).toBeDefined();
+
+    const afterReview = await firstRepository.generateReviewReport(publishRecord!.id);
+    const reviewReport = afterReview.reviewReports[0];
+
+    expect(reviewReport).toBeDefined();
+
+    await firstRepository.archiveProject(publishRecord!.contentProjectId);
+    const afterExtract = await firstRepository.extractReviewKnowledge(reviewReport!.id);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const reloaded = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    const reviewKnowledgeItem = reloaded.knowledgeItems.find((item) => item.id.startsWith("knowledge-item-review"));
+
+    expect(afterExtract.knowledgeItems).toHaveLength(2);
+    expect(reloaded.knowledgeItems).toHaveLength(2);
+    expect(reviewKnowledgeItem).toMatchObject({
+      id: createEntityId("knowledge-item-review", reviewReport!.id),
+      contentProjectId: publishRecord!.contentProjectId,
+      title: "Review lesson: How to build a personal AI workstation for daily content work"
+    });
+    expect(reviewKnowledgeItem?.lesson).toContain(reviewReport!.summary);
+  });
+
+  it("does not insert SQLite review knowledge without an archive", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    expect(publishRecord).toBeDefined();
+
+    const afterReview = await repository.generateReviewReport(publishRecord!.id);
+    const reviewReport = afterReview.reviewReports[0];
+
+    expect(reviewReport).toBeDefined();
+
+    const afterExtract = await repository.extractReviewKnowledge(reviewReport!.id);
+    repository.close();
+
+    expect(afterExtract.knowledgeItems.find((item) => item.id.startsWith("knowledge-item-review"))).toBeUndefined();
+    expect(afterExtract.knowledgeItems).toHaveLength(0);
+  });
+
   it("does not duplicate a project when promoting the same topic twice or unknown topic", async () => {
     const repository = SqliteContentLoopRepository.open({ databasePath });
 

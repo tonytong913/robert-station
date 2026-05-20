@@ -398,6 +398,127 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterReview).toEqual(before);
   });
 
+  it("extracts review knowledge in memory when archive exists", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    await repository.saveMetricImport();
+    const afterReview = await repository.generateReviewReport(publishRecord.id);
+    const reviewReport = afterReview.reviewReports[0];
+
+    if (!reviewReport) {
+      throw new Error("Expected a review report.");
+    }
+
+    await repository.archiveProject(publishRecord.contentProjectId);
+    const afterExtract = await repository.extractReviewKnowledge(reviewReport.id);
+    const reviewKnowledgeItem = afterExtract.knowledgeItems.find((item) =>
+      item.id.startsWith("knowledge-item-review")
+    );
+
+    expect(afterExtract.knowledgeItems).toHaveLength(2);
+    expect(reviewKnowledgeItem).toMatchObject({
+      id: createEntityId("knowledge-item-review", reviewReport.id),
+      archiveRecordId: afterExtract.archiveRecords[0]?.id,
+      contentProjectId: publishRecord.contentProjectId,
+      title: "Review lesson: How to build a personal AI workstation for daily content work"
+    });
+    expect(reviewKnowledgeItem?.lesson).toContain(reviewReport.summary);
+    expect(afterExtract.selectedProjectId).toBe(publishRecord.contentProjectId);
+  });
+
+  it("replaces same in-memory review knowledge item and preserves createdAt", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    await repository.previewMetricCsvImport({
+      sourceFileName: "metrics.csv",
+      csvText: METRIC_CSV
+    });
+    await repository.saveMetricImport();
+    const afterReview = await repository.generateReviewReport(publishRecord.id);
+    const reviewReport = afterReview.reviewReports[0];
+
+    if (!reviewReport) {
+      throw new Error("Expected a review report.");
+    }
+
+    await repository.archiveProject(publishRecord.contentProjectId);
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-05-20T14:00:00.000Z"));
+      const afterFirstExtract = await repository.extractReviewKnowledge(reviewReport.id);
+      const firstReviewKnowledgeItem = afterFirstExtract.knowledgeItems.find((item) =>
+        item.id.startsWith("knowledge-item-review")
+      );
+
+      vi.setSystemTime(new Date("2026-05-20T15:00:00.000Z"));
+      const afterSecondExtract = await repository.extractReviewKnowledge(reviewReport.id);
+      const reviewKnowledgeItems = afterSecondExtract.knowledgeItems.filter((item) =>
+        item.id.startsWith("knowledge-item-review")
+      );
+      const secondReviewKnowledgeItem = reviewKnowledgeItems[0];
+
+      expect(reviewKnowledgeItems).toHaveLength(1);
+      expect(secondReviewKnowledgeItem?.id).toBe(firstReviewKnowledgeItem?.id);
+      expect(secondReviewKnowledgeItem?.createdAt).toBe(firstReviewKnowledgeItem?.createdAt);
+      expect(secondReviewKnowledgeItem?.updatedAt).not.toBe(firstReviewKnowledgeItem?.updatedAt);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not extract in-memory review knowledge without an archive", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    const afterReview = await repository.generateReviewReport(publishRecord.id);
+    const reviewReport = afterReview.reviewReports[0];
+
+    if (!reviewReport) {
+      throw new Error("Expected a review report.");
+    }
+
+    const afterExtract = await repository.extractReviewKnowledge(reviewReport.id);
+
+    expect(afterExtract).toEqual(afterReview);
+  });
+
+  it("does not extract in-memory review knowledge for a missing review report", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterPublish = await publishXiaohongshuDemo(repository);
+    const publishRecord = afterPublish.publishRecords[0];
+
+    if (!publishRecord) {
+      throw new Error("Expected a publish record.");
+    }
+
+    const before = await repository.archiveProject(publishRecord.contentProjectId);
+    const afterExtract = await repository.extractReviewKnowledge("review-report_missing");
+
+    expect(afterExtract).toEqual(before);
+  });
+
   it("archives a generated platform package in memory", async () => {
     const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
     const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");

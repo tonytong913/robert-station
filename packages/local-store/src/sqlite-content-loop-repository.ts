@@ -8,6 +8,7 @@ import {
   createSampleContentLoopSeed,
   generateMockArchivePackage,
   generateMockDraftPackage,
+  generateMockReviewKnowledgeItem,
   generateMockReviewReport,
   generateMockTopics,
   generateMockXiaohongshuPackage
@@ -383,6 +384,45 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       this.upsertContentProject({ ...project, status: "reviewed", updatedAt: reviewReport.updatedAt });
       this.insertReviewReport(reviewReport);
     });
+
+    return this.loadState(project.id);
+  }
+
+  async extractReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState> {
+    const state = this.loadState();
+    const reviewReport = state.reviewReports.find((candidate) => candidate.id === reviewReportId);
+
+    if (!reviewReport) {
+      return state;
+    }
+
+    const project = state.projects.find((candidate) => candidate.id === reviewReport.contentProjectId);
+    const archiveRecord = state.archiveRecords.find(
+      (candidate) => candidate.contentProjectId === reviewReport.contentProjectId
+    );
+
+    if (!project || !archiveRecord) {
+      return state;
+    }
+
+    const metricSnapshot = reviewReport.metricSnapshotId
+      ? state.metricSnapshots.find((candidate) => candidate.id === reviewReport.metricSnapshotId) ?? null
+      : null;
+    const generatedKnowledgeItem = generateMockReviewKnowledgeItem({
+      project,
+      archiveRecord,
+      reviewReport,
+      metricSnapshot,
+      now: this.createPromotionDate()
+    });
+    const knowledgeItem = {
+      ...generatedKnowledgeItem,
+      createdAt:
+        state.knowledgeItems.find((candidate) => candidate.id === generatedKnowledgeItem.id)?.createdAt ??
+        generatedKnowledgeItem.createdAt
+    };
+
+    this.upsertKnowledgeItem(knowledgeItem);
 
     return this.loadState(project.id);
   }
