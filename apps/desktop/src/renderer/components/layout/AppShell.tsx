@@ -13,17 +13,19 @@ export function AppShell(): ReactElement {
   const screen = useContentLoopStore((state) => state.screen)
 
   return (
-    <div className="app-shell">
+    <main className="app-shell">
       <Sidebar />
-      <main className="workspace">
+      <section className="workspace">
         <WorkspaceHeader />
-        {screen === "dashboard" ? <DashboardScreen /> : null}
-        {screen === "topics" ? <TopicScreen /> : null}
-        {screen === "creation" ? <CreationScreen /> : null}
-        {screen === "publish" ? <PublishScreen /> : null}
-        {screen === "review" ? <ReviewScreen /> : null}
-        {screen === "knowledge" ? <KnowledgeScreen /> : null}
-      </main>
-    </div>
+        <div className="workspace-content screen-stack">
+          {screen === "dashboard" ? <DashboardScreen /> : null}
+          {screen === "topics" ? <TopicScreen /> : null}
+          {screen === "creation" ? <CreationScreen /> : null}
+          {screen === "publish" ? <PublishScreen /> : null}
+          {screen === "review" ? <ReviewScreen /> : null}
+          {screen === "knowledge" ? <KnowledgeScreen /> : null}
+        </div>
+      </section>
+    </main>
   )
 }

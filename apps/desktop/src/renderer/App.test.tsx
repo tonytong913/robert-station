@@ -17,6 +17,7 @@ describe("App content loop", () => {
     expect(screen.getByRole("button", { name: "知识库" })).toBeInTheDocument();
     expect(screen.getByText("4 个候选选题")).toBeInTheDocument();
     expect(screen.getByText("0 个活跃项目")).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveClass("app-shell");
   });
 
   it("shows a load error with retry when persisted state fails to load", async () => {

@@ -30,10 +30,11 @@ export function Sidebar(): ReactElement {
 
   return (
     <aside className={["sidebar", isSidebarCollapsed ? "sidebar--collapsed" : ""].filter(Boolean).join(" ")}>
-      <div className="brand" aria-hidden="true">
-        RS
+      <div className="brand-lockup" aria-hidden="true">
+        <div className="brand-mark">RS</div>
+        <span>Robert Station</span>
       </div>
-      <nav aria-label="任务流">
+      <nav aria-label="任务流" className="sidebar-nav">
         {navItems.map(({ screen: itemScreen, labelKey, Icon }) => {
           const label = t(labelKey)
           const isActive = screen === itemScreen

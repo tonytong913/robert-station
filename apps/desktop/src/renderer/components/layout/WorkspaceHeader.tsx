@@ -19,12 +19,12 @@ export function WorkspaceHeader(): ReactElement {
 
   return (
     <header className="workspace-header">
-      <div>
+      <div className="workspace-header__context">
         <p className="eyebrow">{t("header.eyebrow")}</p>
         {selectedProject ? (
           <div className="workspace-header__project">
             <h1>{selectedProject.title}</h1>
-            <div className="workspace-header__meta">
+            <div className="workspace-header__badges workspace-header__meta">
               <StatusBadge>{selectedProject.status}</StatusBadge>
               {selectedColumn ? <span>{selectedColumn.name}</span> : null}
             </div>
@@ -36,7 +36,7 @@ export function WorkspaceHeader(): ReactElement {
           </div>
         )}
       </div>
-      <div className="metric-strip" aria-label="Workspace metrics">
+      <div className="workspace-metrics metric-strip" aria-label="Workspace metrics">
         <span>{t("metrics.candidateTopics", { count: candidateTopicCount })}</span>
         <span>{t("metrics.activeProjects", { count: activeProjectCount })}</span>
         <span>{t("metrics.publishedRecords", { count: publishRecordCount })}</span>
