@@ -38,6 +38,150 @@ describe("App content loop", () => {
   });
 });
 
+describe("App topic and creation screens", () => {
+  it("promotes a topic through persistence API and shows its draft", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    const topicCard = screen.getByRole("article", {
+      name: "How to build a personal AI workstation for daily content work"
+    });
+    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
+
+    expect(await screen.findByRole("heading", { name: "创作" })).toBeInTheDocument();
+    expect(screen.getByText("1 个活跃项目")).toBeInTheDocument();
+    expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
+  });
+
+  it("generates topics for selected column from TopicScreen", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    fireEvent.change(screen.getByLabelText("栏目"), { target: { value: "finance" } });
+    fireEvent.click(screen.getByRole("button", { name: "生成选题" }));
+
+    expect(
+      await screen.findByRole("article", {
+        name: "A 30-minute monthly money review for busy families"
+      })
+    ).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateTopics).toHaveBeenCalledWith("finance");
+  });
+
+  it("shows inline error when topic generation fails", async () => {
+    window.robertStation.contentLoop.generateTopics = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    const generateButton = screen.getByRole("button", { name: "生成选题" });
+    fireEvent.click(generateButton);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("选题生成失败，请重试。");
+    expect(
+      screen.getByRole("article", {
+        name: "How to build a personal AI workstation for daily content work"
+      })
+    ).toBeInTheDocument();
+    expect(generateButton).toBeEnabled();
+  });
+
+  it("generates a draft package for selected project", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成草稿包" }));
+
+    expect(await screen.findByText("草稿 v2")).toBeInTheDocument();
+    expect(screen.getByText("Title Options")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateDraftPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("shows inline error when draft package generation fails", async () => {
+    window.robertStation.contentLoop.generateDraftPackage = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成草稿包" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("草稿包生成失败，请重试。");
+    expect(screen.getByText("草稿 v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "生成草稿包" })).toBeEnabled();
+  });
+
+  it("generates and displays a Xiaohongshu package for selected project", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+
+    expect(await screen.findByRole("heading", { name: "小红书包" })).toBeInTheDocument();
+    expect(screen.getByText("标题")).toBeInTheDocument();
+    expect(screen.getByText("正文")).toBeInTheDocument();
+    expect(screen.getByText("标签")).toBeInTheDocument();
+    expect(screen.getByText("封面文案")).toBeInTheDocument();
+    expect(screen.getByText("所需素材")).toBeInTheDocument();
+    expect(screen.getByText("检查项")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generatePlatformPackage).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation",
+      "xiaohongshu"
+    );
+  });
+
+  it("shows inline error when Xiaohongshu package generation fails", async () => {
+    window.robertStation.contentLoop.generatePlatformPackage = vi.fn(async () => {
+      throw new Error("generation failed");
+    });
+
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("小红书包生成失败，请重试。");
+    expect(screen.getByText("草稿 v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "生成小红书包" })).toBeEnabled();
+  });
+
+  it("archives the selected project and shows archive status", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
+
+    expect(await screen.findByText("已归档")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("shows inline error when project archive fails", async () => {
+    window.robertStation.contentLoop.archiveProject = vi.fn(async () => {
+      throw new Error("archive failed");
+    });
+
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("项目归档失败，请重试。");
+    expect(screen.getByText("草稿 v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "归档项目" })).toBeEnabled();
+  });
+});
+
 // Pending Tasks 4-6: these legacy end-to-end flow tests depend on the old monolithic App screens.
 // Keep the cases visible so each migrated screen can re-enable its behavior coverage.
 describe.skip("legacy App flows pending screen migrations", () => {
@@ -599,6 +743,17 @@ async function promoteAndPublishXiaohongshuPackage(topicName: string, publishUrl
   fireEvent.click(screen.getByRole("button", { name: "Save publish record" }));
 
   await screen.findByText("Published");
+}
+
+async function promoteFirstTopicToProject(): Promise<void> {
+  await screen.findByRole("heading", { name: "总览" });
+  fireEvent.click(screen.getByRole("button", { name: "选题" }));
+  const topicCard = screen.getByRole("article", {
+    name: "How to build a personal AI workstation for daily content work"
+  });
+  fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
+
+  await screen.findByRole("heading", { name: "创作" });
 }
 
 function createDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
