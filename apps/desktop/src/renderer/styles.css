@@ -196,6 +196,30 @@ button:disabled {
   gap: 8px;
 }
 
+.workspace-project-switcher {
+  color: var(--color-text-secondary);
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 750;
+  gap: 6px;
+  margin-top: 12px;
+  max-width: 420px;
+}
+
+.workspace-project-switcher select {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.workspace-project-switcher select:focus {
+  border-color: rgba(143, 72, 47, 0.58);
+  outline: 3px solid rgba(255, 219, 208, 0.78);
+}
+
 .workspace-metrics,
 .metric-strip {
   align-items: start;
@@ -691,6 +715,10 @@ button:disabled {
 
   .workspace-header h1 {
     font-size: 1.32rem;
+  }
+
+  .workspace-project-switcher {
+    max-width: none;
   }
 
   .summary-grid,

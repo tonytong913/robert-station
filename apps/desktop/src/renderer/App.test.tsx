@@ -126,8 +126,8 @@ describe("App topic and creation screens", () => {
 
     await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
-    fireEvent.click(await screen.findByRole("button", { name: "发布" }));
 
+    expect(await screen.findByRole("heading", { name: "发布" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "小红书包" })).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
@@ -139,6 +139,29 @@ describe("App topic and creation screens", () => {
       "project_topic-ai-local-workstation",
       "xiaohongshu"
     );
+  });
+
+  it("switches back to an older promoted project without leaving the current task screen", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    const financeTopicCard = screen.getByRole("article", {
+      name: "A simple family finance dashboard for monthly decisions"
+    });
+    fireEvent.click(within(financeTopicCard).getByRole("button", { name: "转为项目" }));
+    await screen.findByRole("heading", { name: "创作" });
+
+    expect(screen.getByText("Brief hook: A lightweight review habit beats complicated spreadsheets.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("当前项目"), {
+      target: { value: "project_topic-ai-local-workstation" }
+    });
+
+    expect(screen.getByRole("heading", { name: "创作" })).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent("How to build a personal AI workstation for daily content work");
+    expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_finance-family-dashboard");
   });
 
   it("shows inline error when Xiaohongshu package generation fails", async () => {
@@ -477,7 +500,9 @@ describe("App publish and review screens", () => {
       "https://www.xiaohongshu.com/explore/finance"
     );
     fireEvent.click(screen.getByRole("button", { name: "复盘" }));
-    expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
+      "A simple family finance dashboard for monthly decisions"
+    );
 
     deferredReview.resolve({
       ...firstSelectedState,
@@ -501,9 +526,13 @@ describe("App publish and review screens", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+      expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
+        "A simple family finance dashboard for monthly decisions"
+      );
     });
-    expect(screen.queryByText("How to build a personal AI workstation for daily content work")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).not.toHaveTextContent(
+      "How to build a personal AI workstation for daily content work"
+    );
     expect(screen.queryByText("Stale first project report summary")).not.toBeInTheDocument();
   });
 });

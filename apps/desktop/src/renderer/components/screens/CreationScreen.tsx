@@ -22,7 +22,6 @@ export function CreationScreen(): ReactElement {
   const generateDraftPackage = useContentLoopStore((state) => state.generateDraftPackage)
   const generatePlatformPackage = useContentLoopStore((state) => state.generatePlatformPackage)
   const archiveProject = useContentLoopStore((state) => state.archiveProject)
-  const setScreen = useContentLoopStore((state) => state.setScreen)
   const t = useTranslation()
 
   if (!selectedProject || !selectedDraft) {
@@ -37,7 +36,6 @@ export function CreationScreen(): ReactElement {
 
   async function handleGeneratePlatformPackage(): Promise<void> {
     await generatePlatformPackage(selectedProjectId)
-    setScreen("creation")
   }
 
   return (
