@@ -90,7 +90,7 @@ function ReviewReportCard({
   const t = useTranslation()
 
   return (
-    <Panel>
+    <Panel className="review-report-card">
       <StatusBadge>{t("review.reportVersion", { version: report.version })}</StatusBadge>
       <p>{t("review.generatedAt", { time: report.createdAt })}</p>
       <p>{report.summary}</p>

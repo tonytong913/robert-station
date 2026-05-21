@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -455,8 +456,10 @@ button:disabled {
 
 .field-group input,
 .field-group select,
+.field-group textarea,
 .topic-toolbar select,
-.manual-publish-panel input {
+.manual-publish-panel input,
+.manual-publish-panel textarea {
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: 8px;
@@ -465,14 +468,22 @@ button:disabled {
   padding: 9px 10px;
 }
 
+.field-group textarea,
+.manual-publish-panel textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
 .topic-toolbar select {
   min-width: 190px;
 }
 
 .field-group input:focus,
 .field-group select:focus,
+.field-group textarea:focus,
 .topic-toolbar select:focus,
-.manual-publish-panel input:focus {
+.manual-publish-panel input:focus,
+.manual-publish-panel textarea:focus {
   border-color: rgba(143, 72, 47, 0.58);
   outline: 3px solid rgba(255, 219, 208, 0.78);
 }
@@ -537,6 +548,7 @@ button:disabled {
 .draft-section h3,
 .source-panel h3,
 .publish-package-panel h3,
+.review-report-card h3,
 .review-report-card h4 {
   color: var(--color-text-primary);
   font-size: 0.9rem;
