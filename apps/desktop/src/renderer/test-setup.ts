@@ -3,6 +3,8 @@ import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-st
 import { InMemoryContentLoopRepository } from "@robert-station/local-store";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
+import { useContentLoopStore } from "./stores/content-loop-store";
+import { useUiStore } from "./stores/ui-store";
 
 beforeEach(() => {
   const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
@@ -36,5 +38,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  useContentLoopStore.getState().reset();
+  useUiStore.getState().reset();
   vi.restoreAllMocks();
 });

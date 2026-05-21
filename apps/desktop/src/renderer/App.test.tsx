@@ -4,41 +4,64 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 describe("App content loop", () => {
-  it("renders dashboard counts and equal-priority columns after loading persisted state", async () => {
+  it("renders the Chinese taskflow shell after loading persisted state", async () => {
     render(<App />);
 
-    expect(screen.getByText("加载内容工作流...")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Robert Station" })).toBeInTheDocument();
+    expect(screen.getByText("正在加载内容工作台...")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "总览" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "选题" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创作" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "发布" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "复盘" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "知识库" })).toBeInTheDocument();
     expect(screen.getByText("4 个候选选题")).toBeInTheDocument();
-    expect(screen.getByText("0 个进行中项目")).toBeInTheDocument();
-    expect(screen.getByText("AI")).toBeInTheDocument();
-    expect(screen.getByText("财务")).toBeInTheDocument();
-    expect(screen.getByText("育儿")).toBeInTheDocument();
-    expect(screen.getByText("健身")).toBeInTheDocument();
+    expect(screen.getByText("0 个活跃项目")).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveClass("app-shell");
   });
 
+  it("shows a load error with retry when persisted state fails to load", async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("load failed"))
+      .mockResolvedValueOnce(await window.robertStation.contentLoop.load());
+    window.robertStation.contentLoop.load = load;
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("内容工作台加载失败。");
+    expect(load).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "重试加载" }));
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
+  });
+});
+
+describe("App topic and creation screens", () => {
   it("promotes a topic through persistence API and shows its draft", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const topicCard = screen.getByRole("article", {
       name: "How to build a personal AI workstation for daily content work"
     });
     fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
 
-    expect(await screen.findByRole("heading", { name: "创作工作台" })).toBeInTheDocument();
-    expect(screen.getByText("1 个进行中项目")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "创作" })).toBeInTheDocument();
+    expect(screen.getByText("1 个活跃项目")).toBeInTheDocument();
     expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
   });
 
-  it("generates topics for selected column from 选题池", async () => {
+  it("generates topics for selected column from TopicScreen", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    fireEvent.change(screen.getByLabelText("选题栏目"), { target: { value: "finance" } });
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    fireEvent.change(screen.getByLabelText("栏目"), { target: { value: "finance" } });
     fireEvent.click(screen.getByRole("button", { name: "生成选题" }));
 
     expect(
@@ -56,12 +79,12 @@ describe("App content loop", () => {
 
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const generateButton = screen.getByRole("button", { name: "生成选题" });
     fireEvent.click(generateButton);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("无法生成选题，请重试。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("选题生成失败，请重试。");
     expect(
       screen.getByRole("article", {
         name: "How to build a personal AI workstation for daily content work"
@@ -70,17 +93,10 @@ describe("App content loop", () => {
     expect(generateButton).toBeEnabled();
   });
 
-  it("generates a draft package for the selected project", async () => {
+  it("generates a draft package for selected project", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
+    await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "生成草稿包" }));
 
     expect(await screen.findByText("草稿 v2")).toBeInTheDocument();
@@ -90,42 +106,29 @@ describe("App content loop", () => {
     );
   });
 
-  it("shows an inline error and keeps the current draft when draft package generation fails", async () => {
+  it("shows inline error when draft package generation fails", async () => {
     window.robertStation.contentLoop.generateDraftPackage = vi.fn(async () => {
       throw new Error("generation failed");
     });
 
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
+    await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "生成草稿包" }));
 
-    expect(await screen.findByText("无法生成草稿包，请重试。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("草稿包生成失败，请重试。");
     expect(screen.getByText("草稿 v1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "生成草稿包" })).toBeEnabled();
   });
 
-  it("generates and displays a Xiaohongshu package for the selected project", async () => {
+  it("generates and displays a Xiaohongshu package for selected project", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
 
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-
-    expect(await screen.findByRole("heading", { name: "小红书发布包" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "发布" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "小红书包" })).toBeInTheDocument();
     expect(screen.getByText("标题")).toBeInTheDocument();
     expect(screen.getByText("正文")).toBeInTheDocument();
     expect(screen.getByText("标签")).toBeInTheDocument();
@@ -138,41 +141,80 @@ describe("App content loop", () => {
     );
   });
 
-  it("shows an inline error and keeps current content when Xiaohongshu package generation fails", async () => {
+  it("switches back to an older promoted project without leaving the current task screen", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
+    const financeTopicCard = screen.getByRole("article", {
+      name: "A simple family finance dashboard for monthly decisions"
+    });
+    fireEvent.click(within(financeTopicCard).getByRole("button", { name: "转为项目" }));
+    await screen.findByRole("heading", { name: "创作" });
+
+    expect(screen.getByText("Brief hook: A lightweight review habit beats complicated spreadsheets.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("当前项目"), {
+      target: { value: "project_topic-ai-local-workstation" }
+    });
+
+    expect(screen.getByRole("heading", { name: "创作" })).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent("How to build a personal AI workstation for daily content work");
+    expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_finance-family-dashboard");
+  });
+
+  it("shows inline error when Xiaohongshu package generation fails", async () => {
     window.robertStation.contentLoop.generatePlatformPackage = vi.fn(async () => {
       throw new Error("generation failed");
     });
 
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
 
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-
-    expect(await screen.findByText("无法生成小红书发布包，请重试。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("小红书包生成失败，请重试。");
     expect(screen.getByText("草稿 v1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "生成小红书发布包" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "生成小红书包" })).toBeEnabled();
   });
 
+  it("archives the selected project and shows archive status", async () => {
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
+
+    expect(await screen.findByText("已归档")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith(
+      "project_topic-ai-local-workstation"
+    );
+  });
+
+  it("shows inline error when project archive fails", async () => {
+    window.robertStation.contentLoop.archiveProject = vi.fn(async () => {
+      throw new Error("archive failed");
+    });
+
+    render(<App />);
+
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("项目归档失败，请重试。");
+    expect(screen.getByText("草稿 v1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "归档项目" })).toBeEnabled();
+  });
+});
+
+describe("App publish and review screens", () => {
   it("saves a manual publish record for the Xiaohongshu package", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-    await screen.findByRole("heading", { name: "小红书发布包" });
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+    fireEvent.click(await screen.findByRole("button", { name: "发布" }));
+    await screen.findByRole("heading", { name: "发布" });
     fireEvent.change(screen.getByLabelText("发布时间"), {
       target: { value: "2026-05-19T15:30" }
     });
@@ -200,16 +242,10 @@ describe("App content loop", () => {
   it("does not leak unsaved manual publish fields across Xiaohongshu packages", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const aiTopicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(aiTopicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-    await screen.findByRole("heading", { name: "小红书发布包" });
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+    fireEvent.click(await screen.findByRole("button", { name: "发布" }));
+    await screen.findByRole("heading", { name: "发布" });
     fireEvent.change(screen.getByLabelText("发布时间"), {
       target: { value: "2026-05-19T08:45" }
     });
@@ -220,52 +256,48 @@ describe("App content loop", () => {
       target: { value: "Do not carry this draft note forward." }
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
+    fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const financeTopicCard = screen.getByRole("article", {
       name: "A simple family finance dashboard for monthly decisions"
     });
     fireEvent.click(within(financeTopicCard).getByRole("button", { name: "转为项目" }));
 
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-    await screen.findByRole("heading", { name: "小红书发布包" });
+    await screen.findByRole("heading", { name: "创作" });
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+    fireEvent.click(await screen.findByRole("button", { name: "发布" }));
+    await screen.findByRole("heading", { name: "发布" });
 
     expect(screen.getByLabelText("发布时间")).not.toHaveValue("2026-05-19T08:45");
     expect(screen.getByLabelText("发布链接")).toHaveValue("");
     expect(screen.getByLabelText("发布备注")).toHaveValue("");
   });
 
-  it("shows an inline error and keeps package content when manual publish save fails", async () => {
+  it("shows inline error and keeps package content when manual publish save fails", async () => {
     window.robertStation.contentLoop.recordManualPublish = vi.fn(async () => {
       throw new Error("publish failed");
     });
 
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-    await screen.findByRole("heading", { name: "小红书发布包" });
+    await promoteFirstTopicToProject();
+    fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+    fireEvent.click(await screen.findByRole("button", { name: "发布" }));
+    await screen.findByRole("heading", { name: "发布" });
     fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
 
-    expect(await screen.findByText("无法保存发布记录，请重试。")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "小红书发布包" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("发布记录保存失败，请重试。");
+    expect(screen.getByRole("heading", { name: "小红书包" })).toBeInTheDocument();
   });
 
-  it("imports and saves metrics CSV for the selected publish record", async () => {
+  it("imports and saves metrics CSV", async () => {
     await publishXiaohongshuPackage();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入数据 CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入指标 CSV" }));
 
-    expect(await screen.findByText("1 行匹配记录")).toBeInTheDocument();
-    expect(screen.getByText("第 2: https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "保存导入数据" }));
+    expect(await screen.findByText("本次导入匹配 1 行")).toBeInTheDocument();
+    expect(screen.getByText("第 2 行：https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存导入指标" }));
 
     expect(await screen.findByText("浏览")).toBeInTheDocument();
     expect(screen.getByText("100")).toBeInTheDocument();
@@ -273,30 +305,32 @@ describe("App content loop", () => {
     expect(window.robertStation.contentLoop.saveMetricImport).toHaveBeenCalled();
   });
 
-  it("shows an inline error and keeps package content when metrics CSV import fails", async () => {
+  it("shows metrics import failure", async () => {
     window.robertStation.contentLoop.importMetricCsv = vi.fn(async () => {
       throw new Error("import failed");
     });
 
     await publishXiaohongshuPackage();
-    fireEvent.click(screen.getByRole("button", { name: "导入数据 CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入指标 CSV" }));
 
-    expect(await screen.findByText("无法导入数据 CSV，请重试。")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "小红书发布包" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("指标 CSV 导入失败，请重试。");
+    expect(screen.getByRole("heading", { name: "小红书包" })).toBeInTheDocument();
   });
 
-  it("shows an inline error and keeps metrics preview when imported metrics save fails", async () => {
+  it("shows metrics save failure", async () => {
     window.robertStation.contentLoop.saveMetricImport = vi.fn(async () => {
       throw new Error("save failed");
     });
 
     await publishXiaohongshuPackage();
-    fireEvent.click(screen.getByRole("button", { name: "导入数据 CSV" }));
-    await screen.findByText("1 行匹配记录");
-    fireEvent.click(screen.getByRole("button", { name: "保存导入数据" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入指标 CSV" }));
+    await screen.findByText("本次导入匹配 1 行");
+    fireEvent.click(screen.getByRole("button", { name: "保存导入指标" }));
 
-    expect(await screen.findByText("无法保存导入数据，请重试。")).toBeInTheDocument();
-    expect(screen.getByText("1 行匹配记录")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("导入指标保存失败，请重试。");
+    expect(screen.getByText("本次导入匹配 1 行")).toBeInTheDocument();
   });
 
   it("shows every matched metric preview row that will be saved", async () => {
@@ -346,17 +380,18 @@ describe("App content loop", () => {
       }
     }));
 
-    fireEvent.click(screen.getByRole("button", { name: "导入数据 CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "发布" }));
+    fireEvent.click(screen.getByRole("button", { name: "导入指标 CSV" }));
 
-    expect(await screen.findByText("2 行匹配记录")).toBeInTheDocument();
-    expect(screen.getByText("第 2: https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
-    expect(screen.getByText("第 3: https://www.xiaohongshu.com/explore/finance")).toBeInTheDocument();
-    expect(screen.queryByText(/for this publish record/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "保存导入数据" })).toBeEnabled();
+    expect(await screen.findByText("本次导入匹配 2 行")).toBeInTheDocument();
+    expect(screen.getByText("第 2 行：https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
+    expect(screen.getByText("第 3 行：https://www.xiaohongshu.com/explore/finance")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存导入指标" })).toBeEnabled();
   });
 
-  it("generates and displays a review report for the selected publish record", async () => {
+  it("generates and displays review report", async () => {
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
 
     expect(await screen.findByText("复盘报告 v1")).toBeInTheDocument();
@@ -365,58 +400,59 @@ describe("App content loop", () => {
     expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledOnce();
   });
 
-  it("shows an inline error and keeps current content when review generation fails", async () => {
+  it("shows review generation failure", async () => {
     window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => {
       throw new Error("Review failed");
     });
 
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
 
-    expect(await screen.findByText("无法生成复盘报告，请重试。")).toBeInTheDocument();
-    expect(screen.getByText("小红书发布包")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("复盘报告生成失败，请重试。");
+    expect(screen.getByText("https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
   });
 
-  it("extracts review knowledge after a project is archived and lists it in 知识库", async () => {
+  it("extracts review knowledge after project archived and shows status", async () => {
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "创作" }));
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
     await screen.findByText("已归档");
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     await screen.findByText("复盘报告 v1");
 
-    fireEvent.click(screen.getByRole("button", { name: "提取知识" }));
+    fireEvent.click(screen.getByRole("button", { name: "沉淀为知识" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("知识已提取");
-    fireEvent.click(screen.getByRole("button", { name: "知识库" }));
-    expect(await screen.findByText(/Review lesson:/)).toBeInTheDocument();
-    expect(screen.getByText(/review performance/)).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("知识已沉淀");
   });
 
-  it("shows archive-required message when extracting review knowledge before archive", async () => {
+  it("shows archive-required message when extraction before archive", async () => {
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     await screen.findByText("复盘报告 v1");
 
-    fireEvent.click(screen.getByRole("button", { name: "提取知识" }));
+    fireEvent.click(screen.getByRole("button", { name: "沉淀为知识" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "请先归档该项目，再提取复盘知识。"
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("请先归档项目，再沉淀复盘知识。");
   });
 
-  it("shows an inline error and keeps the review report when review knowledge extraction fails", async () => {
+  it("shows extraction failure keeps review report", async () => {
     window.robertStation.contentLoop.extractReviewKnowledge = vi.fn(async () => {
       throw new Error("Extract failed");
     });
 
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "创作" }));
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
     await screen.findByText("已归档");
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     await screen.findByText("复盘报告 v1");
-    fireEvent.click(screen.getByRole("button", { name: "提取知识" }));
+    fireEvent.click(screen.getByRole("button", { name: "沉淀为知识" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("无法提取复盘知识，请重试。");
+    expect(await screen.findByRole("alert")).toHaveTextContent("复盘知识沉淀失败，请重试。");
     expect(screen.getByText("复盘报告 v1")).toBeInTheDocument();
   });
 
@@ -426,18 +462,20 @@ describe("App content loop", () => {
     });
 
     await publishXiaohongshuPackage();
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
-    expect(await screen.findByText("无法生成复盘报告，请重试。")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("复盘报告生成失败，请重试。");
 
     await promoteAndPublishXiaohongshuPackage(
       "A simple family finance dashboard for monthly decisions",
       "https://www.xiaohongshu.com/explore/finance"
     );
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
 
     expect(screen.getByText("https://www.xiaohongshu.com/explore/finance")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "生成复盘报告" })).toBeEnabled();
     await waitFor(() => {
-      expect(screen.queryByText("无法生成复盘报告，请重试。")).not.toBeInTheDocument();
+      expect(screen.queryByText("复盘报告生成失败，请重试。")).not.toBeInTheDocument();
     });
   });
 
@@ -453,6 +491,7 @@ describe("App content loop", () => {
     const deferredReview = createDeferred<PersistedContentLoopState>();
     window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => deferredReview.promise);
 
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     expect(screen.getByRole("button", { name: "生成中..." })).toBeDisabled();
 
@@ -460,7 +499,10 @@ describe("App content loop", () => {
       "A simple family finance dashboard for monthly decisions",
       "https://www.xiaohongshu.com/explore/finance"
     );
-    expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复盘" }));
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
+      "A simple family finance dashboard for monthly decisions"
+    );
 
     deferredReview.resolve({
       ...firstSelectedState,
@@ -484,77 +526,36 @@ describe("App content loop", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("A simple family finance dashboard for monthly decisions")).toBeInTheDocument();
+      expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
+        "A simple family finance dashboard for monthly decisions"
+      );
     });
-    expect(screen.queryByText("How to build a personal AI workstation for daily content work")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).not.toHaveTextContent(
+      "How to build a personal AI workstation for daily content work"
+    );
     expect(screen.queryByText("Stale first project report summary")).not.toBeInTheDocument();
   });
+});
 
-  it("archives the selected project and shows archive status", async () => {
+describe("App knowledge screen", () => {
+  it("lists archived knowledge items in the Knowledge screen", async () => {
     render(<App />);
 
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
-
-    expect(await screen.findByText("已归档")).toBeInTheDocument();
-    expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith(
-      "project_topic-ai-local-workstation"
-    );
-  });
-
-  it("lists archived knowledge items in the 知识库 screen", async () => {
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
+    await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
     await screen.findByText("已归档");
     fireEvent.click(screen.getByRole("button", { name: "知识库" }));
 
     expect(screen.getByRole("heading", { name: "知识库" })).toBeInTheDocument();
     expect(screen.getByText(/Reusable lesson:/)).toBeInTheDocument();
-  });
-
-  it("shows an inline error and keeps the current draft when project archive fails", async () => {
-    window.robertStation.contentLoop.archiveProject = vi.fn(async () => {
-      throw new Error("archive failed");
-    });
-
-    render(<App />);
-
-    await screen.findByRole("heading", { name: "Robert Station" });
-    fireEvent.click(screen.getByRole("button", { name: "选题池" }));
-    const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
-    });
-    fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
-
-    await screen.findByRole("heading", { name: "创作工作台" });
-    fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("无法归档项目，请重试。");
-    expect(screen.getByText("草稿 v1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "归档项目" })).toBeEnabled();
+    expect(screen.getByText(/source reference.*platform package/)).toBeInTheDocument();
   });
 });
 
 async function publishXiaohongshuPackage(): Promise<void> {
   render(<App />);
 
-  await screen.findByRole("heading", { name: "Robert Station" });
+  await screen.findByRole("heading", { name: "总览" });
   await promoteAndPublishXiaohongshuPackage(
     "How to build a personal AI workstation for daily content work",
     "https://www.xiaohongshu.com/explore/demo"
@@ -562,19 +563,31 @@ async function publishXiaohongshuPackage(): Promise<void> {
 }
 
 async function promoteAndPublishXiaohongshuPackage(topicName: string, publishUrl: string): Promise<void> {
-  fireEvent.click(screen.getByRole("button", { name: "选题池" }));
+  fireEvent.click(screen.getByRole("button", { name: "选题" }));
   const topicCard = screen.getByRole("article", { name: topicName });
   fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
 
-  await screen.findByRole("heading", { name: "创作工作台" });
-  fireEvent.click(screen.getByRole("button", { name: "生成小红书发布包" }));
-  await screen.findByRole("heading", { name: "小红书发布包" });
+  await screen.findByRole("heading", { name: "创作" });
+  fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+  fireEvent.click(await screen.findByRole("button", { name: "发布" }));
+  await screen.findByRole("heading", { name: "发布" });
   fireEvent.change(screen.getByLabelText("发布链接"), {
     target: { value: publishUrl }
   });
   fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
 
   await screen.findByText("已发布");
+}
+
+async function promoteFirstTopicToProject(): Promise<void> {
+  await screen.findByRole("heading", { name: "总览" });
+  fireEvent.click(screen.getByRole("button", { name: "选题" }));
+  const topicCard = screen.getByRole("article", {
+    name: "How to build a personal AI workstation for daily content work"
+  });
+  fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
+
+  await screen.findByRole("heading", { name: "创作" });
 }
 
 function createDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
