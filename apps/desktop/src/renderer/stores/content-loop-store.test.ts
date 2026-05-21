@@ -156,6 +156,16 @@ describe("useContentLoopStore", () => {
     })
   })
 
+  it("excludes archived projects from active project count", async () => {
+    await promoteSeedTopic()
+    expect(useContentLoopStore.getState().activeProjectCount).toBe(1)
+
+    await useContentLoopStore.getState().archiveProject("project_topic-ai-local-workstation")
+
+    expect(useContentLoopStore.getState().selectedProject?.status).toBe("archived")
+    expect(useContentLoopStore.getState().activeProjectCount).toBe(0)
+  })
+
   it("does not report extraction success just because old project review knowledge exists", async () => {
     await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
     await useContentLoopStore.getState().archiveProject("project_topic-ai-local-workstation")

@@ -466,7 +466,7 @@ function deriveContentLoopState(
 
   return {
     candidateTopicCount: contentLoop.topics.filter((topic) => topic.status === "candidate").length,
-    activeProjectCount: contentLoop.projects.length,
+    activeProjectCount: contentLoop.projects.filter((project) => project.status !== "archived").length,
     selectedProject,
     selectedDraft,
     selectedXiaohongshuPackage,
