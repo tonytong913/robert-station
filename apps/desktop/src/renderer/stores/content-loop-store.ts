@@ -49,15 +49,15 @@ type AsyncState = {
   isGeneratingReviewReport: boolean
   isExtractingReviewKnowledge: boolean
   loadErrorKey: string | null
-  topicGenerationErrorKey: string | null
-  draftGenerationErrorKey: string | null
-  platformGenerationErrorKey: string | null
-  archiveErrorKey: string | null
-  publishSaveErrorKey: string | null
-  metricImportErrorKey: string | null
-  metricSaveErrorKey: string | null
-  reviewGenerationErrorKey: string | null
-  knowledgeExtractionErrorKey: string | null
+  topicGenerationError: string | null
+  draftPackageError: string | null
+  platformPackageError: string | null
+  archiveError: string | null
+  publishRecordError: string | null
+  metricImportError: string | null
+  metricSaveError: string | null
+  reviewReportError: string | null
+  reviewKnowledgeError: string | null
 }
 
 type DerivedState = {
@@ -114,15 +114,15 @@ const initialAsyncState: AsyncState = {
   isGeneratingReviewReport: false,
   isExtractingReviewKnowledge: false,
   loadErrorKey: null,
-  topicGenerationErrorKey: null,
-  draftGenerationErrorKey: null,
-  platformGenerationErrorKey: null,
-  archiveErrorKey: null,
-  publishSaveErrorKey: null,
-  metricImportErrorKey: null,
-  metricSaveErrorKey: null,
-  reviewGenerationErrorKey: null,
-  knowledgeExtractionErrorKey: null
+  topicGenerationError: null,
+  draftPackageError: null,
+  platformPackageError: null,
+  archiveError: null,
+  publishRecordError: null,
+  metricImportError: null,
+  metricSaveError: null,
+  reviewReportError: null,
+  reviewKnowledgeError: null
 }
 
 const initialDerivedState: DerivedState = {
@@ -174,8 +174,8 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
         reviewKnowledgeResult: null,
         isGeneratingReviewReport: false,
         isExtractingReviewKnowledge: false,
-        reviewGenerationErrorKey: null,
-        knowledgeExtractionErrorKey: null
+        reviewReportError: null,
+        reviewKnowledgeError: null
       })
     ),
   selectPublishRecord: (publishRecordId) =>
@@ -190,8 +190,8 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
         reviewKnowledgeResult: null,
         isGeneratingReviewReport: false,
         isExtractingReviewKnowledge: false,
-        reviewGenerationErrorKey: null,
-        knowledgeExtractionErrorKey: null
+        reviewReportError: null,
+        reviewKnowledgeError: null
       })
     }),
   load: async () => {
@@ -209,47 +209,47 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
     set((state) => withDerived({ ...state, contentLoop, screen: "creation" }))
   },
   generateTopics: async () => {
-    set({ isGeneratingTopics: true, topicGenerationErrorKey: null })
+    set({ isGeneratingTopics: true, topicGenerationError: null })
 
     try {
       const contentLoop = await generatePersistedTopics(get().topicGenerationColumn)
       set((state) => withDerived({ ...state, contentLoop, isGeneratingTopics: false }))
     } catch {
-      set({ isGeneratingTopics: false, topicGenerationErrorKey: "topics.generateFailed" })
+      set({ isGeneratingTopics: false, topicGenerationError: "topics.generateFailed" })
     }
   },
   generateDraftPackage: async (projectId) => {
-    set({ isGeneratingDraftPackage: true, draftGenerationErrorKey: null })
+    set({ isGeneratingDraftPackage: true, draftPackageError: null })
 
     try {
       const contentLoop = await generatePersistedDraftPackage(projectId)
       set((state) => withDerived({ ...state, contentLoop, isGeneratingDraftPackage: false }))
     } catch {
-      set({ isGeneratingDraftPackage: false, draftGenerationErrorKey: "creation.draftFailed" })
+      set({ isGeneratingDraftPackage: false, draftPackageError: "creation.draftFailed" })
     }
   },
   generatePlatformPackage: async (projectId) => {
-    set({ isGeneratingPlatformPackage: true, platformGenerationErrorKey: null })
+    set({ isGeneratingPlatformPackage: true, platformPackageError: null })
 
     try {
       const contentLoop = await generatePersistedPlatformPackage(projectId, "xiaohongshu")
       set((state) => withDerived({ ...state, contentLoop, screen: "publish", isGeneratingPlatformPackage: false }))
     } catch {
-      set({ isGeneratingPlatformPackage: false, platformGenerationErrorKey: "creation.platformFailed" })
+      set({ isGeneratingPlatformPackage: false, platformPackageError: "creation.platformFailed" })
     }
   },
   archiveProject: async (projectId) => {
-    set({ isArchivingProject: true, archiveErrorKey: null })
+    set({ isArchivingProject: true, archiveError: null })
 
     try {
       const contentLoop = await archivePersistedProject(projectId)
       set((state) => withDerived({ ...state, contentLoop, isArchivingProject: false }))
     } catch {
-      set({ isArchivingProject: false, archiveErrorKey: "creation.archiveFailed" })
+      set({ isArchivingProject: false, archiveError: "creation.archiveFailed" })
     }
   },
   recordManualPublish: async (platformPackageId, input) => {
-    set({ isSavingPublishRecord: true, publishSaveErrorKey: null })
+    set({ isSavingPublishRecord: true, publishRecordError: null })
 
     try {
       const draft = { ...get().manualPublishDraft, ...input }
@@ -276,40 +276,40 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
           isSavingPublishRecord: false,
           isGeneratingReviewReport: false,
           isExtractingReviewKnowledge: false,
-          reviewGenerationErrorKey: null,
-          knowledgeExtractionErrorKey: null,
+          reviewReportError: null,
+          reviewKnowledgeError: null,
           reviewKnowledgeResult: null
         })
       )
     } catch {
-      set({ isSavingPublishRecord: false, publishSaveErrorKey: "publish.saveFailed" })
+      set({ isSavingPublishRecord: false, publishRecordError: "publish.saveFailed" })
     }
   },
   importMetricCsv: async () => {
-    set({ isImportingMetrics: true, metricImportErrorKey: null, metricSaveErrorKey: null })
+    set({ isImportingMetrics: true, metricImportError: null, metricSaveError: null })
 
     try {
       const contentLoop = await importPersistedMetricCsv()
       set((state) => withDerived({ ...state, contentLoop, isImportingMetrics: false }))
     } catch {
-      set({ isImportingMetrics: false, metricImportErrorKey: "metrics.importFailed" })
+      set({ isImportingMetrics: false, metricImportError: "metrics.importFailed" })
     }
   },
   saveMetricImport: async () => {
-    set({ isSavingMetricImport: true, metricSaveErrorKey: null })
+    set({ isSavingMetricImport: true, metricSaveError: null })
 
     try {
       const contentLoop = await savePersistedMetricImport()
       set((state) => withDerived({ ...state, contentLoop, isSavingMetricImport: false }))
     } catch {
-      set({ isSavingMetricImport: false, metricSaveErrorKey: "metrics.saveFailed" })
+      set({ isSavingMetricImport: false, metricSaveError: "metrics.saveFailed" })
     }
   },
   generateReviewReport: async (publishRecordId) => {
     set({
       selectedPublishRecordId: publishRecordId,
       isGeneratingReviewReport: true,
-      reviewGenerationErrorKey: null
+      reviewReportError: null
     })
 
     try {
@@ -321,7 +321,7 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       }
     } catch {
       if (get().selectedPublishRecordId === publishRecordId) {
-        set({ isGeneratingReviewReport: false, reviewGenerationErrorKey: "review.generateFailed" })
+        set({ isGeneratingReviewReport: false, reviewReportError: "review.generateFailed" })
       }
     }
   },
@@ -330,7 +330,7 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       selectedReviewReportId: reviewReportId,
       isExtractingReviewKnowledge: true,
       reviewKnowledgeResult: null,
-      knowledgeExtractionErrorKey: null
+      reviewKnowledgeError: null
     })
 
     try {
@@ -360,7 +360,7 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       }
     } catch {
       if (get().selectedReviewReportId === reviewReportId) {
-        set({ isExtractingReviewKnowledge: false, knowledgeExtractionErrorKey: "review.extractFailed" })
+        set({ isExtractingReviewKnowledge: false, reviewKnowledgeError: "review.extractFailed" })
       }
     }
   },

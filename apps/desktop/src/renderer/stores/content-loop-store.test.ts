@@ -130,6 +130,29 @@ describe("useContentLoopStore", () => {
     expect(state.reviewKnowledgeResult).toBeNull()
     expect(state.candidateTopicCount).toBe(0)
   })
+
+  it("exposes the planned public async error field names", () => {
+    const state = useContentLoopStore.getState()
+
+    expect(state.topicGenerationError).toBeNull()
+    expect(state.draftPackageError).toBeNull()
+    expect(state.platformPackageError).toBeNull()
+    expect(state.archiveError).toBeNull()
+    expect(state.publishRecordError).toBeNull()
+    expect(state.metricImportError).toBeNull()
+    expect(state.metricSaveError).toBeNull()
+    expect(state.reviewReportError).toBeNull()
+    expect(state.reviewKnowledgeError).toBeNull()
+    expect("topicGenerationErrorKey" in state).toBe(false)
+    expect("draftGenerationErrorKey" in state).toBe(false)
+    expect("platformGenerationErrorKey" in state).toBe(false)
+    expect("archiveErrorKey" in state).toBe(false)
+    expect("publishSaveErrorKey" in state).toBe(false)
+    expect("metricImportErrorKey" in state).toBe(false)
+    expect("metricSaveErrorKey" in state).toBe(false)
+    expect("reviewGenerationErrorKey" in state).toBe(false)
+    expect("knowledgeExtractionErrorKey" in state).toBe(false)
+  })
 })
 
 async function promoteSeedTopic(): Promise<void> {
