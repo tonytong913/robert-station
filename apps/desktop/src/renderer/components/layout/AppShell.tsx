@@ -3,6 +3,8 @@ import { useContentLoopStore } from "../../stores/content-loop-store"
 import { EmptyState } from "../shared/EmptyState"
 import { CreationScreen } from "../screens/CreationScreen"
 import { DashboardScreen } from "../screens/DashboardScreen"
+import { PublishScreen } from "../screens/PublishScreen"
+import { ReviewScreen } from "../screens/ReviewScreen"
 import { TopicScreen } from "../screens/TopicScreen"
 import { Sidebar } from "./Sidebar"
 import { WorkspaceHeader } from "./WorkspaceHeader"
@@ -18,8 +20,8 @@ export function AppShell(): ReactElement {
         {screen === "dashboard" ? <DashboardScreen /> : null}
         {screen === "topics" ? <TopicScreen /> : null}
         {screen === "creation" ? <CreationScreen /> : null}
-        {screen === "publish" ? <EmptyState title="发布" /> : null}
-        {screen === "review" ? <EmptyState title="复盘" /> : null}
+        {screen === "publish" ? <PublishScreen /> : null}
+        {screen === "review" ? <ReviewScreen /> : null}
         {screen === "knowledge" ? <EmptyState title="知识库" /> : null}
       </main>
     </div>

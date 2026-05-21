@@ -400,6 +400,8 @@ function withDerived(state: ContentLoopStoreState): ContentLoopStoreState {
           url: derived.selectedPublishRecord.url,
           note: derived.selectedPublishRecord.note
         }
+      : contextChanged
+        ? createDefaultManualPublishDraft()
       : state.manualPublishDraft
 
   return {
