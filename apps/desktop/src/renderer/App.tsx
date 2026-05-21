@@ -22,6 +22,54 @@ const workflowStages = ["Dashboard", "Topic Pool", "Projects", "Creation Studio"
 type Screen = (typeof workflowStages)[number];
 type ReviewKnowledgeResult = { kind: "success" | "blocked"; text: string };
 
+const screenLabels: Record<Screen, string> = {
+  Dashboard: "仪表盘",
+  "Topic Pool": "选题池",
+  Projects: "项目",
+  "Creation Studio": "创作工作台",
+  Knowledge: "知识库"
+};
+
+const columnLabels: Record<ContentColumnSlug, { name: string; description: string }> = {
+  ai: {
+    name: "AI",
+    description: "AI 工具、工作流、工作站、生产力和 AI 知识科普。"
+  },
+  finance: {
+    name: "财务",
+    description: "个人财务、工具、方法和学习笔记。"
+  },
+  parenting: {
+    name: "育儿",
+    description: "育儿、家庭工作流和日常问题解决。"
+  },
+  fitness: {
+    name: "健身",
+    description: "游泳、健身训练、习惯养成、装备和计划。"
+  }
+};
+
+const topicStatusLabels: Record<string, string> = {
+  candidate: "候选",
+  promoted: "已转为项目"
+};
+
+const projectStatusLabels: Record<string, string> = {
+  topic: "选题",
+  drafting: "草稿中",
+  ready_to_publish: "待发布",
+  published: "已发布",
+  reviewed: "已复盘",
+  archived: "已归档"
+};
+
+const checkStatusLabels: Record<string, string> = {
+  pass: "通过",
+  warning: "提醒",
+  warn: "提醒",
+  fail: "未通过"
+};
+
 export function App(): ReactElement {
   const isMountedRef = useRef(false);
   const selectedPublishRecordIdRef = useRef<string | null>(null);
@@ -71,7 +119,7 @@ export function App(): ReactElement {
       return "Robert Station";
     }
 
-    return screen;
+    return screenLabels[screen];
   }, [screen]);
 
   const selectedProject = contentLoop?.projects.find((project) => project.id === contentLoop.selectedProjectId) ?? null;
@@ -174,7 +222,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setTopicGenerationError("Could not generate topics. Try again.");
+        setTopicGenerationError("无法生成选题，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -198,7 +246,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setDraftPackageError("Could not generate draft package. Try again.");
+        setDraftPackageError("无法生成草稿包，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -222,7 +270,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setPlatformPackageError("Could not generate Xiaohongshu package. Try again.");
+        setPlatformPackageError("无法生成小红书发布包，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -246,7 +294,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setArchiveError("Could not archive project. Try again.");
+        setArchiveError("无法归档项目，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -275,7 +323,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setPublishRecordError("Could not save publish record. Try again.");
+        setPublishRecordError("无法保存发布记录，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -300,7 +348,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setMetricImportError("Could not import metrics CSV. Try again.");
+        setMetricImportError("无法导入数据 CSV，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -324,7 +372,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current) {
-        setMetricSaveError("Could not save imported metrics. Try again.");
+        setMetricSaveError("无法保存导入数据，请重试。");
       }
     } finally {
       if (isMountedRef.current) {
@@ -348,7 +396,7 @@ export function App(): ReactElement {
       }
     } catch {
       if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
-        setReviewReportError("Could not generate review report. Try again.");
+        setReviewReportError("无法生成复盘报告，请重试。");
       }
     } finally {
       if (isMountedRef.current && selectedPublishRecordIdRef.current === publishRecordId) {
@@ -380,13 +428,13 @@ export function App(): ReactElement {
         setContentLoop(nextState);
         setReviewKnowledgeResult(
           hasReviewKnowledge
-            ? { kind: "success", text: "Knowledge extracted" }
-            : { kind: "blocked", text: "Archive this project before extracting review knowledge." }
+            ? { kind: "success", text: "知识已提取" }
+            : { kind: "blocked", text: "请先归档该项目，再提取复盘知识。" }
         );
       }
     } catch {
       if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
-        setReviewKnowledgeError("Could not extract review knowledge. Try again.");
+        setReviewKnowledgeError("无法提取复盘知识，请重试。");
       }
     } finally {
       if (isMountedRef.current && selectedReviewReportIdRef.current === reviewReportId) {
@@ -398,14 +446,14 @@ export function App(): ReactElement {
   if (!contentLoop) {
     return (
       <main className="loading-shell">
-        <p>Loading content loop...</p>
+        <p>加载内容工作流...</p>
       </main>
     );
   }
 
   return (
     <main className="app-shell">
-      <aside className="sidebar" aria-label="Primary navigation">
+      <aside className="sidebar" aria-label="主导航">
         <div className="brand">RS</div>
         <nav>
           {workflowStages.map((stage) => (
@@ -415,7 +463,7 @@ export function App(): ReactElement {
               onClick={() => setScreen(stage)}
               type="button"
             >
-              {stage}
+              {screenLabels[stage]}
             </button>
           ))}
         </nav>
@@ -424,37 +472,35 @@ export function App(): ReactElement {
       <section className="dashboard">
         <header className="dashboard-header">
           <div>
-            <p className="eyebrow">Content operations workbench</p>
+            <p className="eyebrow">内容运营工作台</p>
             <h1>{screenTitle}</h1>
           </div>
-          <div className="metric-strip" aria-label="Content loop metrics">
-            <span>{candidateTopicCount} candidate topics</span>
-            <span>
-              {activeProjectCount} active {activeProjectCount === 1 ? "project" : "projects"}
-            </span>
+          <div className="metric-strip" aria-label="内容工作流指标">
+            <span>{candidateTopicCount} 个候选选题</span>
+            <span>{activeProjectCount} 个进行中项目</span>
           </div>
         </header>
 
         {screen === "Dashboard" ? (
-          <section className="summary-grid" aria-label="Content columns">
+          <section className="summary-grid" aria-label="内容栏目">
             {DEFAULT_COLUMNS.map((column) => (
               <article className="column-card" key={column.slug}>
                 <div className="column-card__header">
-                  <h2>{column.name}</h2>
-                  <span>Priority {column.priority}</span>
+                  <h2>{columnLabels[column.slug].name}</h2>
+                  <span>优先级 {column.priority}</span>
                 </div>
-                <p>{column.description}</p>
+                <p>{columnLabels[column.slug].description}</p>
                 <dl>
                   <div>
-                    <dt>Topics</dt>
+                    <dt>选题</dt>
                     <dd>{contentLoop.topics.filter((topic) => topic.columnSlug === column.slug).length}</dd>
                   </div>
                   <div>
-                    <dt>Drafts</dt>
+                    <dt>草稿</dt>
                     <dd>{contentLoop.drafts.length}</dd>
                   </div>
                   <div>
-                    <dt>Published</dt>
+                    <dt>已发布</dt>
                     <dd>0</dd>
                   </div>
                 </dl>
@@ -467,21 +513,21 @@ export function App(): ReactElement {
           <>
             <div className="topic-toolbar">
               <label>
-                <span>Column</span>
+                <span>栏目</span>
                 <select
-                  aria-label="Topic column"
+                  aria-label="选题栏目"
                   onChange={(event) => setTopicGenerationColumn(event.target.value as ContentColumnSlug)}
                   value={topicGenerationColumn}
                 >
                   {DEFAULT_COLUMNS.map((column) => (
                     <option key={column.slug} value={column.slug}>
-                      {column.name}
+                      {columnLabels[column.slug].name}
                     </option>
                   ))}
                 </select>
               </label>
               <button disabled={isGeneratingTopics} onClick={() => void handleGenerateTopics()} type="button">
-                {isGeneratingTopics ? "Generating..." : "Generate topics"}
+                {isGeneratingTopics ? "生成中..." : "生成选题"}
               </button>
               {topicGenerationError ? (
                 <p className="inline-error" role="alert">
@@ -489,31 +535,31 @@ export function App(): ReactElement {
                 </p>
               ) : null}
             </div>
-            <section className="topic-grid" aria-label="Topic candidates">
+            <section className="topic-grid" aria-label="候选选题">
               {contentLoop.topics.map((topic) => (
                 <article aria-label={topic.title} className="topic-card" key={topic.id}>
                   <div className="topic-card__meta">
-                    <span>{topic.columnSlug}</span>
-                    <span>{topic.status}</span>
+                    <span>{columnLabels[topic.columnSlug].name}</span>
+                    <span>{topicStatusLabels[topic.status] ?? topic.status}</span>
                   </div>
                   <h2>{topic.title}</h2>
                   <p>{topic.hook}</p>
                   <dl className="score-grid">
                     <div>
-                      <dt>Heat</dt>
+                      <dt>热度</dt>
                       <dd>{topic.score.heat}</dd>
                     </div>
                     <div>
-                      <dt>Fit</dt>
+                      <dt>匹配度</dt>
                       <dd>{topic.score.fit}</dd>
                     </div>
                     <div>
-                      <dt>Difficulty</dt>
+                      <dt>难度</dt>
                       <dd>{topic.score.difficulty}</dd>
                     </div>
                   </dl>
                   <button disabled={topic.status === "promoted"} onClick={() => void handlePromote(topic.id)} type="button">
-                    {topic.status === "promoted" ? "Promoted" : "Promote to project"}
+                    {topic.status === "promoted" ? "已转为项目" : "转为项目"}
                   </button>
                 </article>
               ))}
@@ -522,9 +568,9 @@ export function App(): ReactElement {
         ) : null}
 
         {screen === "Projects" ? (
-          <section className="project-list" aria-label="Content projects">
+          <section className="project-list" aria-label="内容项目">
             {contentLoop.projects.length === 0 ? (
-              <p className="empty-state">No content projects yet. Promote a topic to start drafting.</p>
+              <p className="empty-state">暂无内容项目。先将选题转为项目开始写作。</p>
             ) : (
               contentLoop.projects.map((project) => (
                 <button
@@ -537,7 +583,7 @@ export function App(): ReactElement {
                   type="button"
                 >
                   <span>{project.title}</span>
-                  <strong>{project.status}</strong>
+                  <strong>{projectStatusLabels[project.status] ?? project.status}</strong>
                 </button>
               ))
             )}
@@ -545,7 +591,7 @@ export function App(): ReactElement {
         ) : null}
 
         {screen === "Creation Studio" ? (
-          <section className="creation-studio" aria-label="Selected project draft">
+          <section className="creation-studio" aria-label="当前项目草稿">
             {selectedProject && selectedDraft ? (
               <>
                 <div className="creation-actions">
@@ -554,21 +600,21 @@ export function App(): ReactElement {
                     onClick={() => void handleGenerateDraftPackage(selectedProject.id)}
                     type="button"
                   >
-                    {isGeneratingDraftPackage ? "Generating..." : "Generate draft package"}
+                    {isGeneratingDraftPackage ? "生成中..." : "生成草稿包"}
                   </button>
                   <button
                     disabled={isGeneratingPlatformPackage}
                     onClick={() => void handleGeneratePlatformPackage(selectedProject.id)}
                     type="button"
                   >
-                    {isGeneratingPlatformPackage ? "Generating..." : "Generate Xiaohongshu package"}
+                    {isGeneratingPlatformPackage ? "生成中..." : "生成小红书发布包"}
                   </button>
                   <button
                     disabled={isArchivingProject}
                     onClick={() => void handleArchiveProject(selectedProject.id)}
                     type="button"
                   >
-                    {isArchivingProject ? "Archiving..." : "Archive project"}
+                    {isArchivingProject ? "归档中..." : "归档项目"}
                   </button>
                   {draftPackageError ? (
                     <p className="inline-error" role="alert">
@@ -587,7 +633,7 @@ export function App(): ReactElement {
                   ) : null}
                 </div>
                 <div className="draft-panel">
-                  <p className="eyebrow">Draft v{selectedDraft.version}</p>
+                  <p className="eyebrow">草稿 v{selectedDraft.version}</p>
                   <h2>{selectedDraft.title}</h2>
                   {selectedDraft.body.split("\n\n").map((block) => {
                     const [firstLine, ...rest] = block.split("\n");
@@ -609,7 +655,7 @@ export function App(): ReactElement {
                   })}
                 </div>
                 <aside className="source-panel">
-                  <h2>Sources</h2>
+                  <h2>来源</h2>
                   {contentLoop.sourceReferences
                     .filter(
                       (source) =>
@@ -622,28 +668,28 @@ export function App(): ReactElement {
                       </article>
                     ))}
                 </aside>
-                <section className="publish-package-panel" aria-label="Xiaohongshu Package">
-                  <h2>Xiaohongshu Package</h2>
+                <section className="publish-package-panel" aria-label="小红书发布包">
+                  <h2>小红书发布包</h2>
                   {selectedXiaohongshuPackage ? (
                     <>
                       <section>
-                        <h3>Title</h3>
+                        <h3>标题</h3>
                         <p>{selectedXiaohongshuPackage.title}</p>
                       </section>
                       <section>
-                        <h3>Body</h3>
+                        <h3>正文</h3>
                         <p>{selectedXiaohongshuPackage.body}</p>
                       </section>
                       <section>
-                        <h3>Tags</h3>
+                        <h3>标签</h3>
                         <p>{selectedXiaohongshuPackage.tags.join(" ")}</p>
                       </section>
                       <section>
-                        <h3>Cover text</h3>
+                        <h3>封面文案</h3>
                         <p>{selectedXiaohongshuPackage.coverText}</p>
                       </section>
                       <section>
-                        <h3>Required assets</h3>
+                        <h3>所需素材</h3>
                         <ul>
                           {selectedXiaohongshuPackage.requiredAssets.map((asset) => (
                             <li key={asset}>{asset}</li>
@@ -651,39 +697,40 @@ export function App(): ReactElement {
                         </ul>
                       </section>
                       <section>
-                        <h3>Checks</h3>
+                        <h3>检查项</h3>
                         <ul>
                           {selectedXiaohongshuPackage.checks.map((check) => (
                             <li key={check.name}>
-                              <strong>{check.status}</strong> {check.name}: {check.message}
+                              <strong>{checkStatusLabels[check.status] ?? check.status}</strong> {check.name}:{" "}
+                              {check.message}
                             </li>
                           ))}
                         </ul>
                       </section>
-                      <section className="manual-publish-panel" aria-label="Manual publish record">
-                        <h3>Manual publish</h3>
+                      <section className="manual-publish-panel" aria-label="手动发布记录">
+                        <h3>手动发布</h3>
                         <label>
-                          <span>Published at</span>
+                          <span>发布时间</span>
                           <input
-                            aria-label="Published at"
+                            aria-label="发布时间"
                             onChange={(event) => setPublishTime(event.target.value)}
                             type="datetime-local"
                             value={publishTime}
                           />
                         </label>
                         <label>
-                          <span>Publish URL</span>
+                          <span>发布链接</span>
                           <input
-                            aria-label="Publish URL"
+                            aria-label="发布链接"
                             onChange={(event) => setPublishUrl(event.target.value)}
                             type="url"
                             value={publishUrl}
                           />
                         </label>
                         <label>
-                          <span>Publish note</span>
+                          <span>发布备注</span>
                           <input
-                            aria-label="Publish note"
+                            aria-label="发布备注"
                             onChange={(event) => setPublishNote(event.target.value)}
                             type="text"
                             value={publishNote}
@@ -694,7 +741,7 @@ export function App(): ReactElement {
                           onClick={() => void handleRecordManualPublish(selectedXiaohongshuPackage.id)}
                           type="button"
                         >
-                          {isSavingPublishRecord ? "Saving..." : "Save publish record"}
+                          {isSavingPublishRecord ? "保存中..." : "保存发布记录"}
                         </button>
                         {publishRecordError ? (
                           <p className="inline-error" role="alert">
@@ -703,34 +750,34 @@ export function App(): ReactElement {
                         ) : null}
                         {selectedPublishRecord ? (
                           <div className="publish-record-summary">
-                            <strong>Published</strong>
+                            <strong>已发布</strong>
                             <p>{selectedPublishRecord.publishedAt}</p>
-                            <p>{selectedPublishRecord.url || "No URL recorded"}</p>
+                            <p>{selectedPublishRecord.url || "未记录链接"}</p>
                             {selectedPublishRecord.note ? <p>{selectedPublishRecord.note}</p> : null}
                             {selectedLatestMetricSnapshot ? (
                               <dl className="metric-snapshot-summary">
                                 <div>
-                                  <dt>Views</dt>
+                                  <dt>浏览</dt>
                                   <dd>{selectedLatestMetricSnapshot.views}</dd>
                                 </div>
                                 <div>
-                                  <dt>Likes</dt>
+                                  <dt>点赞</dt>
                                   <dd>{selectedLatestMetricSnapshot.likes}</dd>
                                 </div>
                                 <div>
-                                  <dt>Favorites</dt>
+                                  <dt>收藏</dt>
                                   <dd>{selectedLatestMetricSnapshot.favorites}</dd>
                                 </div>
                                 <div>
-                                  <dt>Comments</dt>
+                                  <dt>评论</dt>
                                   <dd>{selectedLatestMetricSnapshot.comments}</dd>
                                 </div>
                                 <div>
-                                  <dt>Shares</dt>
+                                  <dt>分享</dt>
                                   <dd>{selectedLatestMetricSnapshot.shares}</dd>
                                 </div>
                                 <div>
-                                  <dt>Snapshot</dt>
+                                  <dt>快照时间</dt>
                                   <dd>{selectedLatestMetricSnapshot.snapshotAt}</dd>
                                 </div>
                               </dl>
@@ -739,14 +786,14 @@ export function App(): ReactElement {
                         ) : null}
                         {selectedPublishRecord ? (
                           <>
-                            <section className="metrics-import-panel" aria-label="Metrics import">
-                              <h3>Metrics import</h3>
+                            <section className="metrics-import-panel" aria-label="数据导入">
+                              <h3>数据导入</h3>
                               <button
                                 disabled={isImportingMetrics}
                                 onClick={() => void handleImportMetricCsv()}
                                 type="button"
                               >
-                                {isImportingMetrics ? "Importing..." : "Import metrics CSV"}
+                                {isImportingMetrics ? "导入中..." : "导入数据 CSV"}
                               </button>
                               {metricImportError ? (
                                 <p className="inline-error" role="alert">
@@ -756,20 +803,17 @@ export function App(): ReactElement {
                               {contentLoop.metricImportPreview ? (
                                 <div className="metric-import-preview">
                                   <p>
-                                    {matchedMetricImportRows} matched {matchedMetricImportRows === 1 ? "row" : "rows"}{" "}
-                                    in this import
+                                    {matchedMetricImportRows} 行匹配记录
                                   </p>
-                                  <p>
-                                    {invalidMetricImportRows} invalid {invalidMetricImportRows === 1 ? "row" : "rows"}
-                                  </p>
+                                  <p>{invalidMetricImportRows} 行无效记录</p>
                                   {matchedMetricImportPreviewRows.map((row) => (
                                     <p key={row.rowNumber}>
-                                      Row {row.rowNumber}: {row.url || row.publishRecordId}
+                                      第 {row.rowNumber}: {row.url || row.publishRecordId}
                                     </p>
                                   ))}
                                   {invalidMetricImportPreviewRows.map((row) => (
                                     <p key={row.rowNumber}>
-                                      Row {row.rowNumber}: {row.error}
+                                      第 {row.rowNumber}: {row.error}
                                     </p>
                                   ))}
                                   {matchedMetricImportRows > 0 ? (
@@ -778,7 +822,7 @@ export function App(): ReactElement {
                                       onClick={() => void handleSaveMetricImport()}
                                       type="button"
                                     >
-                                      {isSavingMetricImport ? "Saving..." : "Save imported metrics"}
+                                      {isSavingMetricImport ? "保存中..." : "保存导入数据"}
                                     </button>
                                   ) : null}
                                 </div>
@@ -789,14 +833,14 @@ export function App(): ReactElement {
                                 </p>
                               ) : null}
                             </section>
-                            <section className="review-report-panel" aria-label="Review report">
-                              <h3>Review report</h3>
+                            <section className="review-report-panel" aria-label="复盘报告">
+                              <h3>复盘报告</h3>
                               <button
                                 disabled={isGeneratingReviewReport}
                                 onClick={() => void handleGenerateReviewReport(selectedPublishRecord.id)}
                                 type="button"
                               >
-                                {isGeneratingReviewReport ? "Generating..." : "Generate review report"}
+                                {isGeneratingReviewReport ? "生成中..." : "生成复盘报告"}
                               </button>
                               {reviewReportError ? (
                                 <p className="inline-error" role="alert">
@@ -805,28 +849,28 @@ export function App(): ReactElement {
                               ) : null}
                               {selectedLatestReviewReport ? (
                                 <article className="review-report-card">
-                                  <p className="eyebrow">Review Report v{selectedLatestReviewReport.version}</p>
-                                  <p>Generated {selectedLatestReviewReport.createdAt}</p>
+                                  <p className="eyebrow">复盘报告 v{selectedLatestReviewReport.version}</p>
+                                  <p>生成时间 {selectedLatestReviewReport.createdAt}</p>
                                   <p>{selectedLatestReviewReport.summary}</p>
-                                  <h4>Highlights</h4>
+                                  <h4>亮点</h4>
                                   <ul>
                                     {selectedLatestReviewReport.highlights.map((item) => (
                                       <li key={item}>{item}</li>
                                     ))}
                                   </ul>
-                                  <h4>Underperforming signals</h4>
+                                  <h4>表现不足信号</h4>
                                   <ul>
                                     {selectedLatestReviewReport.underperformingSignals.map((item) => (
                                       <li key={item}>{item}</li>
                                     ))}
                                   </ul>
-                                  <h4>Likely causes</h4>
+                                  <h4>可能原因</h4>
                                   <ul>
                                     {selectedLatestReviewReport.likelyCauses.map((item) => (
                                       <li key={item}>{item}</li>
                                     ))}
                                   </ul>
-                                  <h4>Next actions</h4>
+                                  <h4>下一步行动</h4>
                                   <ul>
                                     {selectedLatestReviewReport.nextActions.map((item) => (
                                       <li key={item}>{item}</li>
@@ -837,7 +881,7 @@ export function App(): ReactElement {
                                     onClick={() => void handleExtractReviewKnowledge(selectedLatestReviewReport.id)}
                                     type="button"
                                   >
-                                    {isExtractingReviewKnowledge ? "Extracting..." : "Extract knowledge"}
+                                    {isExtractingReviewKnowledge ? "提取中..." : "提取知识"}
                                   </button>
                                   {reviewKnowledgeResult?.kind === "success" ? (
                                     <p role="status">{reviewKnowledgeResult.text}</p>
@@ -860,35 +904,35 @@ export function App(): ReactElement {
                       </section>
                     </>
                   ) : (
-                    <p className="empty-state">No Xiaohongshu package yet.</p>
+                    <p className="empty-state">暂无小红书发布包。</p>
                   )}
                 </section>
                 <section className="archive-status-panel">
-                  <h2>Archive</h2>
+                  <h2>归档</h2>
                   {selectedArchiveRecord ? (
                     <>
-                      <strong>Archived</strong>
+                      <strong>已归档</strong>
                       <p>{selectedArchiveRecord.summary}</p>
                     </>
                   ) : (
-                    <p>Not archived yet.</p>
+                    <p>尚未归档。</p>
                   )}
                 </section>
               </>
             ) : (
-              <p className="empty-state">Select or promote a topic to open the first draft.</p>
+              <p className="empty-state">选择或转化一个选题以打开第一版草稿。</p>
             )}
           </section>
         ) : null}
 
         {screen === "Knowledge" ? (
-          <section className="knowledge-list" aria-label="Archived knowledge">
+          <section className="knowledge-list" aria-label="已归档知识">
             {contentLoop.knowledgeItems.length === 0 ? (
-              <p className="empty-state">No archived knowledge yet.</p>
+              <p className="empty-state">暂无归档知识。</p>
             ) : (
               contentLoop.knowledgeItems.map((knowledgeItem) => (
                 <article className="knowledge-card" key={knowledgeItem.id}>
-                  <p className="eyebrow">{knowledgeItem.columnSlug}</p>
+                  <p className="eyebrow">{columnLabels[knowledgeItem.columnSlug].name}</p>
                   <h2>{knowledgeItem.title}</h2>
                   <p>{knowledgeItem.tags.join(" ")}</p>
                   <p>{knowledgeItem.lesson}</p>
