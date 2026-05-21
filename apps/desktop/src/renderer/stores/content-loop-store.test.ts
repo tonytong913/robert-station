@@ -105,6 +105,44 @@ describe("useContentLoopStore", () => {
     expect(state.isGeneratingReviewReport).toBe(false)
   })
 
+  it("clears review loading when topic promotion changes selection before stale review generation resolves", async () => {
+    await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
+    const firstRecordId = useContentLoopStore.getState().selectedPublishRecord?.id
+    const staleResponse = useContentLoopStore.getState().contentLoop!
+    const deferredReview = createDeferred<PersistedContentLoopState>()
+    window.robertStation.contentLoop.generateReviewReport = vi.fn(async () => deferredReview.promise)
+
+    const reviewPromise = useContentLoopStore.getState().generateReviewReport(firstRecordId!)
+    expect(useContentLoopStore.getState().isGeneratingReviewReport).toBe(true)
+
+    await useContentLoopStore.getState().promoteTopic("topic_finance-family-dashboard")
+    expect(useContentLoopStore.getState().isGeneratingReviewReport).toBe(false)
+
+    deferredReview.resolve(staleResponse)
+    await reviewPromise
+
+    expect(useContentLoopStore.getState().isGeneratingReviewReport).toBe(false)
+    expect(useContentLoopStore.getState().selectedProject?.id).toBe("project_topic-finance-family-dashboard")
+  })
+
+  it("clears review knowledge feedback when generating a new review report", async () => {
+    await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
+    await useContentLoopStore.getState().generateReviewReport(useContentLoopStore.getState().selectedPublishRecord!.id)
+    await useContentLoopStore.getState().extractReviewKnowledge(useContentLoopStore.getState().selectedLatestReviewReport!.id)
+    expect(useContentLoopStore.getState().reviewKnowledgeResult).toEqual({
+      kind: "blocked",
+      textKey: "review.archiveRequired"
+    })
+
+    const reviewPromise = useContentLoopStore.getState().generateReviewReport(
+      useContentLoopStore.getState().selectedPublishRecord!.id
+    )
+
+    expect(useContentLoopStore.getState().reviewKnowledgeResult).toBeNull()
+    await reviewPromise
+    expect(useContentLoopStore.getState().reviewKnowledgeResult).toBeNull()
+  })
+
   it("sets blocked review knowledge result when the project has not been archived", async () => {
     await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
     await useContentLoopStore.getState().generateReviewReport(useContentLoopStore.getState().selectedPublishRecord!.id)
@@ -116,6 +154,38 @@ describe("useContentLoopStore", () => {
       kind: "blocked",
       textKey: "review.archiveRequired"
     })
+  })
+
+  it("does not report extraction success just because old project review knowledge exists", async () => {
+    await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
+    await useContentLoopStore.getState().archiveProject("project_topic-ai-local-workstation")
+    await useContentLoopStore.getState().generateReviewReport(useContentLoopStore.getState().selectedPublishRecord!.id)
+    await useContentLoopStore.getState().extractReviewKnowledge(useContentLoopStore.getState().selectedLatestReviewReport!.id)
+    expect(useContentLoopStore.getState().reviewKnowledgeResult?.kind).toBe("success")
+
+    await useContentLoopStore.getState().generateReviewReport(useContentLoopStore.getState().selectedPublishRecord!.id)
+    const unchangedState = useContentLoopStore.getState().contentLoop!
+    window.robertStation.contentLoop.extractReviewKnowledge = vi.fn(async () => unchangedState)
+
+    await useContentLoopStore.getState().extractReviewKnowledge(useContentLoopStore.getState().selectedLatestReviewReport!.id)
+
+    expect(useContentLoopStore.getState().reviewKnowledgeResult).toEqual({
+      kind: "blocked",
+      textKey: "review.archiveRequired"
+    })
+  })
+
+  it("sets promote topic error state and clears loading when promotion fails", async () => {
+    await useContentLoopStore.getState().load()
+    window.robertStation.contentLoop.promoteTopic = vi.fn(async () => {
+      throw new Error("promotion failed")
+    })
+
+    await expect(useContentLoopStore.getState().promoteTopic("topic_ai_local-workstation")).resolves.toBeUndefined()
+
+    expect(useContentLoopStore.getState().isPromotingTopic).toBe(false)
+    expect(useContentLoopStore.getState().promoteTopicError).toBe("topics.promoteFailed")
+    expect(useContentLoopStore.getState().selectedProject).toBeNull()
   })
 
   it("resets to initial store state", async () => {
@@ -135,6 +205,7 @@ describe("useContentLoopStore", () => {
     const state = useContentLoopStore.getState()
 
     expect(state.topicGenerationError).toBeNull()
+    expect(state.promoteTopicError).toBeNull()
     expect(state.draftPackageError).toBeNull()
     expect(state.platformPackageError).toBeNull()
     expect(state.archiveError).toBeNull()

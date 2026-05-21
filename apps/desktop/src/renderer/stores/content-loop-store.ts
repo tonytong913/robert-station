@@ -10,6 +10,7 @@ import type {
   PublishRecord,
   ReviewReport
 } from "@robert-station/core"
+import { createEntityId } from "@robert-station/core"
 import type { PersistedContentLoopState } from "@robert-station/local-store"
 import { create } from "zustand"
 import {
@@ -39,6 +40,7 @@ type ManualPublishDraftInput = Partial<ManualPublishDraft>
 
 type AsyncState = {
   isLoading: boolean
+  isPromotingTopic: boolean
   isGeneratingTopics: boolean
   isGeneratingDraftPackage: boolean
   isGeneratingPlatformPackage: boolean
@@ -49,6 +51,7 @@ type AsyncState = {
   isGeneratingReviewReport: boolean
   isExtractingReviewKnowledge: boolean
   loadErrorKey: string | null
+  promoteTopicError: string | null
   topicGenerationError: string | null
   draftPackageError: string | null
   platformPackageError: string | null
@@ -104,6 +107,7 @@ type ContentLoopStoreState = AsyncState &
 
 const initialAsyncState: AsyncState = {
   isLoading: false,
+  isPromotingTopic: false,
   isGeneratingTopics: false,
   isGeneratingDraftPackage: false,
   isGeneratingPlatformPackage: false,
@@ -114,6 +118,7 @@ const initialAsyncState: AsyncState = {
   isGeneratingReviewReport: false,
   isExtractingReviewKnowledge: false,
   loadErrorKey: null,
+  promoteTopicError: null,
   topicGenerationError: null,
   draftPackageError: null,
   platformPackageError: null,
@@ -205,8 +210,14 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
     }
   },
   promoteTopic: async (topicId) => {
-    const contentLoop = await promotePersistedTopic(topicId)
-    set((state) => withDerived({ ...state, contentLoop, screen: "creation" }))
+    set({ isPromotingTopic: true, promoteTopicError: null })
+
+    try {
+      const contentLoop = await promotePersistedTopic(topicId)
+      set((state) => withDerived({ ...state, contentLoop, screen: "creation", isPromotingTopic: false }))
+    } catch {
+      set({ isPromotingTopic: false, promoteTopicError: "topics.promoteFailed" })
+    }
   },
   generateTopics: async () => {
     set({ isGeneratingTopics: true, topicGenerationError: null })
@@ -309,7 +320,8 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
     set({
       selectedPublishRecordId: publishRecordId,
       isGeneratingReviewReport: true,
-      reviewReportError: null
+      reviewReportError: null,
+      reviewKnowledgeResult: null
     })
 
     try {
@@ -326,6 +338,8 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
     }
   },
   extractReviewKnowledge: async (reviewReportId) => {
+    const previousReviewKnowledgeItem = getReviewKnowledgeItem(get().contentLoop, reviewReportId)
+
     set({
       selectedReviewReportId: reviewReportId,
       isExtractingReviewKnowledge: true,
@@ -338,14 +352,12 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       // Review extraction may be blocked by archive prerequisites. Only apply the result if
       // the same report is still selected, then inspect returned state instead of assuming success.
       if (get().selectedReviewReportId === reviewReportId) {
-        const reportProjectId = contentLoop.reviewReports.find((report) => report.id === reviewReportId)?.contentProjectId ?? null
-        const hasReviewKnowledge = contentLoop.knowledgeItems.some(
-          (item) =>
-            item.contentProjectId === reportProjectId &&
-            item.tags.includes("review") &&
-            item.tags.includes("performance")
-        )
-        const reviewKnowledgeResult: ReviewKnowledgeResult = hasReviewKnowledge
+        const nextReviewKnowledgeItem = getReviewKnowledgeItem(contentLoop, reviewReportId)
+        const didExtractReviewKnowledge =
+          !!nextReviewKnowledgeItem &&
+          (!previousReviewKnowledgeItem ||
+            JSON.stringify(nextReviewKnowledgeItem) !== JSON.stringify(previousReviewKnowledgeItem))
+        const reviewKnowledgeResult: ReviewKnowledgeResult = didExtractReviewKnowledge
           ? { kind: "success", textKey: "review.knowledgeExtracted" }
           : { kind: "blocked", textKey: "review.archiveRequired" }
 
@@ -377,6 +389,10 @@ function createDefaultManualPublishDraft(): ManualPublishDraft {
 
 function withDerived(state: ContentLoopStoreState): ContentLoopStoreState {
   const derived = deriveContentLoopState(state.contentLoop, state.selectedPublishRecordId, state.selectedReviewReportId)
+  const contextChanged =
+    state.selectedProject?.id !== derived.selectedProject?.id ||
+    state.selectedPublishRecord?.id !== derived.selectedPublishRecord?.id ||
+    state.selectedLatestReviewReport?.id !== derived.selectedLatestReviewReport?.id
   const manualPublishDraft =
     derived.selectedXiaohongshuPackage && derived.selectedPublishRecord
       ? {
@@ -391,8 +407,19 @@ function withDerived(state: ContentLoopStoreState): ContentLoopStoreState {
     ...derived,
     selectedPublishRecordId: derived.selectedPublishRecord?.id ?? null,
     selectedReviewReportId: derived.selectedLatestReviewReport?.id ?? null,
-    manualPublishDraft
+    manualPublishDraft,
+    isGeneratingReviewReport: contextChanged ? false : state.isGeneratingReviewReport,
+    isExtractingReviewKnowledge: contextChanged ? false : state.isExtractingReviewKnowledge,
+    reviewReportError: contextChanged ? null : state.reviewReportError,
+    reviewKnowledgeError: contextChanged ? null : state.reviewKnowledgeError,
+    reviewKnowledgeResult: contextChanged ? null : state.reviewKnowledgeResult
   }
+}
+
+function getReviewKnowledgeItem(contentLoop: PersistedContentLoopState | null, reviewReportId: string) {
+  const reviewKnowledgeItemId = createEntityId("knowledge-item-review", reviewReportId)
+
+  return contentLoop?.knowledgeItems.find((item) => item.id === reviewKnowledgeItemId) ?? null
 }
 
 function deriveContentLoopState(
