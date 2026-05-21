@@ -33,7 +33,7 @@ export function Sidebar(): ReactElement {
       <div className="brand" aria-hidden="true">
         RS
       </div>
-      <nav aria-label="Taskflow">
+      <nav aria-label="任务流">
         {navItems.map(({ screen: itemScreen, labelKey, Icon }) => {
           const label = t(labelKey)
           const isActive = screen === itemScreen

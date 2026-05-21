@@ -18,6 +18,24 @@ describe("App content loop", () => {
     expect(screen.getByText("4 个候选选题")).toBeInTheDocument();
     expect(screen.getByText("0 个活跃项目")).toBeInTheDocument();
   });
+
+  it("shows a load error with retry when persisted state fails to load", async () => {
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("load failed"))
+      .mockResolvedValueOnce(await window.robertStation.contentLoop.load());
+    window.robertStation.contentLoop.load = load;
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("内容工作台加载失败。");
+    expect(load).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "重试加载" }));
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("heading", { name: "总览" })).toBeInTheDocument();
+  });
 });
 
 // Pending Tasks 4-6: these legacy end-to-end flow tests depend on the old monolithic App screens.
