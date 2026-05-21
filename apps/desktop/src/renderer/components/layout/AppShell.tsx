@@ -1,8 +1,8 @@
 import type { ReactElement } from "react"
 import { useContentLoopStore } from "../../stores/content-loop-store"
-import { EmptyState } from "../shared/EmptyState"
 import { CreationScreen } from "../screens/CreationScreen"
 import { DashboardScreen } from "../screens/DashboardScreen"
+import { KnowledgeScreen } from "../screens/KnowledgeScreen"
 import { PublishScreen } from "../screens/PublishScreen"
 import { ReviewScreen } from "../screens/ReviewScreen"
 import { TopicScreen } from "../screens/TopicScreen"
@@ -22,7 +22,7 @@ export function AppShell(): ReactElement {
         {screen === "creation" ? <CreationScreen /> : null}
         {screen === "publish" ? <PublishScreen /> : null}
         {screen === "review" ? <ReviewScreen /> : null}
-        {screen === "knowledge" ? <EmptyState title="知识库" /> : null}
+        {screen === "knowledge" ? <KnowledgeScreen /> : null}
       </main>
     </div>
   )

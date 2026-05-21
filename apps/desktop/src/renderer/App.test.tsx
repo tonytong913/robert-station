@@ -507,8 +507,7 @@ describe("App publish and review screens", () => {
   });
 });
 
-// Pending Task 6: Knowledge screen migration remains separate from publish/review.
-describe.skip("App knowledge screen pending migration", () => {
+describe("App knowledge screen", () => {
   it("lists archived knowledge items in the Knowledge screen", async () => {
     render(<App />);
 
@@ -519,6 +518,7 @@ describe.skip("App knowledge screen pending migration", () => {
 
     expect(screen.getByRole("heading", { name: "知识库" })).toBeInTheDocument();
     expect(screen.getByText(/Reusable lesson:/)).toBeInTheDocument();
+    expect(screen.getByText(/source reference.*platform package/)).toBeInTheDocument();
   });
 });
 
