@@ -1,5 +1,6 @@
 .superpowers/
 .git-store/
+.worktrees/
 node_modules/
 dist/
 build/
