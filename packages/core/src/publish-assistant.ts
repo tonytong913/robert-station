@@ -18,7 +18,7 @@ export function generateMockXiaohongshuPackage(request: GenerateMockXiaohongshuP
   const body = extractBody(request.draft.body);
   const tags = extractTags(request.draft.body, request.project.primaryColumnId);
   const coverText = extractCoverText(request.draft.body, title);
-  const requiredAssets = ["Cover image", "1-3 supporting screenshots or workflow visuals"];
+  const requiredAssets = ["封面图", "1-3 张辅助截图或工作流视觉图"];
 
   return {
     id: createEntityId("platform-package", `${request.project.id}-${request.draft.id}-xiaohongshu`),
@@ -47,9 +47,9 @@ function extractBody(draftBody: string): string {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  const bodyStart = lines.findIndex((line) => line === "Body Draft");
+  const bodyStart = lines.findIndex((line) => line === "正文草稿" || line === "Body Draft");
   const nextSection =
-    bodyStart >= 0 ? lines.findIndex((line, index) => index > bodyStart && /^[A-Z][A-Za-z ]+$/.test(line)) : -1;
+    bodyStart >= 0 ? lines.findIndex((line, index) => index > bodyStart && isSectionHeading(line)) : -1;
   const bodyLines =
     bodyStart >= 0
       ? lines.slice(bodyStart + 1, nextSection > bodyStart ? nextSection : undefined)
@@ -57,7 +57,7 @@ function extractBody(draftBody: string): string {
 
   return bodyLines.length > 0
     ? bodyLines.join("\n")
-    : "Share the practical workflow, key steps, and one action readers can try today.";
+    : "分享实用工作流、关键步骤，以及读者今天就能尝试的一个动作。";
 }
 
 function extractTags(draftBody: string, primaryColumnId: string): string[] {
@@ -73,7 +73,7 @@ function extractTags(draftBody: string, primaryColumnId: string): string[] {
 
 function extractCoverText(draftBody: string, title: string): string {
   const lines = draftBody.split("\n").map((line) => line.trim());
-  const coverIndex = lines.findIndex((line) => line === "Cover Copy");
+  const coverIndex = lines.findIndex((line) => line === "封面文案" || line === "Cover Copy");
   const coverLine = coverIndex >= 0 ? lines.slice(coverIndex + 1).find((line) => line.length > 0) : null;
   const coverText = coverLine ?? title;
 
@@ -88,30 +88,37 @@ function buildChecks(input: {
 }): PlatformPackageCheck[] {
   return [
     {
-      name: "Title length",
+      name: "标题长度",
       status: input.title.length <= MAX_TITLE_LENGTH ? "pass" : "warning",
       message:
         input.title.length <= MAX_TITLE_LENGTH
-          ? "Title fits the v0 Xiaohongshu length target."
-          : "Shorten the title to 20 characters or fewer."
+          ? "标题符合 v0 小红书长度目标。"
+          : "请将标题压缩到 20 个字符以内。"
     },
     {
-      name: "Body",
+      name: "正文",
       status: input.body.length > 0 ? "pass" : "warning",
-      message: input.body.length > 0 ? "Body copy is present." : "Add body copy before publishing."
+      message: input.body.length > 0 ? "正文内容已准备好。" : "发布前请补充正文内容。"
     },
     {
-      name: "Tags",
+      name: "标签",
       status: input.tags.length <= MAX_TAG_COUNT ? "pass" : "warning",
       message:
         input.tags.length <= MAX_TAG_COUNT
-          ? "Tag count fits the v0 Xiaohongshu package."
-          : "Use 8 or fewer tags for the v0 Xiaohongshu package."
+          ? "标签数量符合 v0 小红书发布包要求。"
+          : "v0 小红书发布包请使用 8 个以内标签。"
     },
     {
-      name: "Assets",
+      name: "素材",
       status: input.requiredAssets.length > 0 ? "pass" : "warning",
-      message: input.requiredAssets.length > 0 ? "Asset checklist is present." : "Add at least one required asset."
+      message: input.requiredAssets.length > 0 ? "素材清单已准备好。" : "请至少补充一个所需素材。"
     }
   ];
+}
+
+function isSectionHeading(line: string): boolean {
+  return (
+    /^[A-Z][A-Za-z ]+$/.test(line) ||
+    ["简报", "标题选项", "正文草稿", "封面文案", "标签建议", "视觉方向", "待核实"].includes(line)
+  );
 }

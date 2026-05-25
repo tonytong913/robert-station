@@ -8,7 +8,7 @@ const project: ContentProject = {
   workspaceId: "workspace_robert-station",
   primaryColumnId: "column_ai",
   sourceTopicId: "topic_ai_local-workstation",
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   status: "published",
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z"
@@ -24,8 +24,8 @@ const platformPackage: PlatformPackage = {
   body: "A practical note for creators building repeatable AI workflows.",
   tags: ["#AI", "#workflow"],
   coverText: "AI workstation",
-  requiredAssets: ["Cover image"],
-  checks: [{ name: "Title length", status: "pass", message: "Title is short enough." }],
+  requiredAssets: ["封面图"],
+  checks: [{ name: "标题长度", status: "pass", message: "Title is short enough." }],
   createdAt: "2026-05-19T01:00:00.000Z",
   updatedAt: "2026-05-19T01:00:00.000Z"
 };
@@ -87,8 +87,8 @@ describe("generateMockReviewReport", () => {
       createdAt: "2026-05-20T09:00:00.000Z",
       updatedAt: "2026-05-20T09:00:00.000Z"
     });
-    expect(report.summary).toContain("1000 views");
-    expect(report.highlights.join(" ")).toContain("Like rate");
+    expect(report.summary).toContain("1000 次浏览");
+    expect(report.highlights.join(" ")).toContain("点赞率");
     expect(report.underperformingSignals.length).toBeGreaterThan(0);
     expect(report.likelyCauses.join(" ")).toContain("Build a personal AI workstation");
     expect(report.nextActions.length).toBeGreaterThanOrEqual(3);
@@ -106,9 +106,9 @@ describe("generateMockReviewReport", () => {
 
     expect(report.id).toBe(expectedReviewReportId(2));
     expect(report.metricSnapshotId).toBeUndefined();
-    expect(report.summary).toContain("No imported metrics are available yet");
-    expect(report.highlights).toEqual(["Publish metadata is recorded and ready for metric import."]);
-    expect(report.nextActions).toContain("Import the latest platform metrics CSV before making performance conclusions.");
+    expect(report.summary).toContain("还没有导入指标");
+    expect(report.highlights).toEqual(["发布元数据已记录，可以导入指标。"]);
+    expect(report.nextActions).toContain("先导入最新平台指标 CSV，再做表现结论。");
   });
 
   it("handles zero-view metrics without dividing by zero", () => {
@@ -121,7 +121,7 @@ describe("generateMockReviewReport", () => {
       now: new Date("2026-05-20T11:00:00.000Z")
     });
 
-    expect(report.summary).toContain("0 views");
-    expect(report.underperformingSignals).toContain("Reach is not established yet because the latest snapshot has 0 views.");
+    expect(report.summary).toContain("0 次浏览");
+    expect(report.underperformingSignals).toContain("最新快照浏览量为 0，触达尚未建立。");
   });
 });

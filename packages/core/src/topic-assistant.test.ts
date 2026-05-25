@@ -11,7 +11,7 @@ describe("generateMockTopics", () => {
     expect(result.topics[0]?.columnSlug).toBe("ai");
     expect(result.topics[0]?.status).toBe("candidate");
     expect(result.sourceReferences[0]?.topicId).toBe("topic_ai_mock-workflow-automations");
-    expect(result.sourceReferences[0]?.note).toContain("Verify");
+    expect(result.sourceReferences[0]?.note).toContain("发布前请核实");
   });
 
   it("generates column-specific topics for each supported column", () => {

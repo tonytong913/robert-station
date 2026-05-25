@@ -64,7 +64,7 @@ describe("InMemoryContentLoopRepository", () => {
 
     expect(afterGenerate.drafts.filter((draft) => draft.contentProjectId === projectId)).toHaveLength(2);
     expect(afterGenerate.drafts[0]?.version).toBe(2);
-    expect(afterGenerate.drafts[0]?.body).toContain("Title Options");
+    expect(afterGenerate.drafts[0]?.body).toContain("标题选项");
     expect(afterGenerate.selectedProjectId).toBe(projectId);
   });
 
@@ -430,7 +430,7 @@ describe("InMemoryContentLoopRepository", () => {
       id: createEntityId("knowledge-item-review", reviewReport.id),
       archiveRecordId: afterExtract.archiveRecords[0]?.id,
       contentProjectId: publishRecord.contentProjectId,
-      title: "Review lesson: How to build a personal AI workstation for daily content work"
+      title: "复盘经验： 如何搭建个人 AI 工作站处理日常内容"
     });
     expect(reviewKnowledgeItem?.lesson).toContain(reviewReport.summary);
     expect(afterExtract.selectedProjectId).toBe(publishRecord.contentProjectId);

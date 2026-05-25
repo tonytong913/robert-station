@@ -9,11 +9,11 @@ const platformPackage: PlatformPackage = {
   draftVersionId: "draft_project-topic-ai-local-workstation-2",
   platform: "xiaohongshu",
   title: "AI workstation flow",
-  body: "Turn scattered AI tools into one repeatable daily workflow.",
+  body: "把分散的 AI 工具变成可复用的每日工作流。",
   tags: ["#ai", "#workflow"],
-  coverText: "Make the workflow visible",
-  requiredAssets: ["Cover image"],
-  checks: [{ name: "Body", status: "pass", message: "Body copy is present." }],
+  coverText: "让工作流可视化",
+  requiredAssets: ["封面图"],
+  checks: [{ name: "正文", status: "pass", message: "正文内容已准备好。" }],
   createdAt: "2026-05-19T13:00:00.000Z",
   updatedAt: "2026-05-19T13:00:00.000Z"
 };

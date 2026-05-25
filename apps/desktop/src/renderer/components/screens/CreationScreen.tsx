@@ -1,5 +1,6 @@
 import type { PlatformPackage } from "@robert-station/core"
 import type { ReactElement } from "react"
+import { formatProjectStatus } from "../../display-labels"
 import { useTranslation, type TranslationKey } from "../../i18n"
 import { useContentLoopStore } from "../../stores/content-loop-store"
 import { Button } from "../shared/Button"
@@ -41,7 +42,7 @@ export function CreationScreen(): ReactElement {
   return (
     <section className="creation-screen">
       <div className="screen-heading">
-        <p className="eyebrow">{selectedProject.status}</p>
+        <p className="eyebrow">{formatProjectStatus(selectedProject.status)}</p>
         <h1>{t("creation.title")}</h1>
       </div>
       <div className="creation-studio">

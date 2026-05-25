@@ -8,7 +8,7 @@ const project: ContentProject = {
   workspaceId: "workspace_robert-station",
   primaryColumnId: "column_ai",
   sourceTopicId: "topic_ai_local-workstation",
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   status: "reviewed",
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-20T09:00:00.000Z"
@@ -36,13 +36,13 @@ const reviewReport: ReviewReport = {
   publishRecordId: "publish-record_demo",
   metricSnapshotId: "metric-snapshot_demo",
   version: 1,
-  summary: "The workstation post reached 1000 views and showed strong save intent.",
-  highlights: ["Favorite rate is 5.0%."],
-  underperformingSignals: ["Comment rate is below the v0 discussion threshold of 1%."],
-  likelyCauses: ["The title made the workflow benefit concrete."],
+  summary: "工作站内容达到 1000 次浏览，并显示出强收藏意图。",
+  highlights: ["收藏率为 5.0%。"],
+  underperformingSignals: ["评论率低于 v0 讨论阈值 1%。"],
+  likelyCauses: ["标题把工作流收益讲得很具体。"],
   nextActions: [
-    "Write one alternate title and cover text before republishing a related topic.",
-    "Import another metric snapshot after the next review window."
+    "重新发布相关选题前，先写一个备选标题和封面文案。",
+    "下一个复盘窗口后再导入一次指标快照。"
   ],
   createdAt: "2026-05-20T09:00:00.000Z",
   updatedAt: "2026-05-20T09:00:00.000Z"
@@ -82,13 +82,13 @@ describe("generateMockReviewKnowledgeItem", () => {
       archiveRecordId: archiveRecord.id,
       contentProjectId: project.id,
       columnSlug: "ai",
-      title: `Review lesson: ${project.title}`,
+      title: `复盘经验： ${project.title}`,
       createdAt: "2026-05-20T10:00:00.000Z",
       updatedAt: "2026-05-20T10:00:00.000Z"
     });
     expect(item.lesson).toContain(reviewReport.summary);
     expect(item.lesson).toContain(reviewReport.nextActions[0]);
-    expect(item.evidence).toContain("Review Report v1");
+    expect(item.evidence).toContain("复盘报告 v1");
     expect(item.evidence).toContain(metricSnapshot.id);
     expect(item.tags).toEqual(["ai", "review", "performance", "metrics"]);
   });
@@ -104,7 +104,7 @@ describe("generateMockReviewKnowledgeItem", () => {
     });
 
     expect(item.tags).toEqual(["ai", "review", "performance"]);
-    expect(item.evidence).toContain("Review Report v1");
+    expect(item.evidence).toContain("复盘报告 v1");
     expect(item.evidence).not.toContain("metric-snapshot");
   });
 });

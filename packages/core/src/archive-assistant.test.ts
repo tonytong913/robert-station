@@ -7,8 +7,8 @@ const topic: Topic = {
   workspaceId: "workspace_robert-station",
   columnSlug: "ai",
   title: "Personal AI workstation",
-  hook: "Turn scattered AI tools into one repeatable daily workflow.",
-  audience: "Creators who want practical AI productivity gains.",
+  hook: "把分散的 AI 工具变成可复用的每日工作流。",
+  audience: "希望获得实用 AI 提效的创作者。",
   targetPlatforms: ["xiaohongshu"],
   status: "promoted",
   score: {
@@ -26,7 +26,7 @@ const project: ContentProject = {
   workspaceId: "workspace_robert-station",
   primaryColumnId: "column_ai",
   sourceTopicId: topic.id,
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   status: "published",
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z"
@@ -37,7 +37,7 @@ const draft: DraftVersion = {
   workspaceId: "workspace_robert-station",
   contentProjectId: project.id,
   version: 2,
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   body: "AI workstation flow for repeatable local content production.",
   createdBy: "assistant",
   createdAt: "2026-05-19T12:00:00.000Z",
@@ -53,11 +53,11 @@ const platformPackage: PlatformPackage = {
   title: "AI workstation flow",
   body: "Turn the daily AI content workflow into a publishable Xiaohongshu post.",
   tags: ["#ai", "#workflow"],
-  coverText: "Make the workflow visible",
-  requiredAssets: ["Cover image"],
+  coverText: "让工作流可视化",
+  requiredAssets: ["封面图"],
   checks: [
     {
-      name: "Title length",
+      name: "标题长度",
       status: "pass",
       message: "Title fits the v0 Xiaohongshu length target."
     }
@@ -111,10 +111,10 @@ describe("generateMockArchivePackage", () => {
     });
 
     expect(archivePackage.archiveRecord.summary).toContain(topic.hook);
-    expect(archivePackage.archiveRecord.summary).toContain("Xiaohongshu package: AI workstation flow.");
-    expect(archivePackage.knowledgeItem.lesson).toContain("Reusable lesson:");
-    expect(archivePackage.knowledgeItem.evidence).toContain("1 source reference");
-    expect(archivePackage.knowledgeItem.evidence).toContain("1 platform package");
+    expect(archivePackage.archiveRecord.summary).toContain("Xiaohongshu发布包：AI workstation flow。");
+    expect(archivePackage.knowledgeItem.lesson).toContain("可复用经验：");
+    expect(archivePackage.knowledgeItem.evidence).toContain("1 条来源引用");
+    expect(archivePackage.knowledgeItem.evidence).toContain("1 个发布包");
   });
 
   it("archives a project without topic draft or platform package records", () => {
@@ -138,8 +138,8 @@ describe("generateMockArchivePackage", () => {
     expect(archivePackage.archiveRecord.packageCount).toBe(0);
     expect(archivePackage.knowledgeItem.columnSlug).toBe("ai");
     expect(archivePackage.knowledgeItem.tags).toEqual(["ai", "local", "archive"]);
-    expect(archivePackage.knowledgeItem.evidence).toContain("0 source references");
-    expect(archivePackage.knowledgeItem.evidence).toContain("0 platform packages");
+    expect(archivePackage.knowledgeItem.evidence).toContain("0 条来源引用");
+    expect(archivePackage.knowledgeItem.evidence).toContain("0 个发布包");
     expect(nullableArchivePackage.knowledgeItem.tags).toEqual(["ai", "local", "archive"]);
   });
 });

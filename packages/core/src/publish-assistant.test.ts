@@ -7,7 +7,7 @@ const project: ContentProject = {
   workspaceId: "workspace_robert-station",
   primaryColumnId: "column_ai",
   sourceTopicId: "topic_ai_local-workstation",
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   status: "drafting",
   createdAt: "2026-05-19T00:00:00.000Z",
   updatedAt: "2026-05-19T00:00:00.000Z"
@@ -18,18 +18,18 @@ const draft: DraftVersion = {
   workspaceId: "workspace_robert-station",
   contentProjectId: project.id,
   version: 2,
-  title: "How to build a personal AI workstation for daily content work",
+  title: "如何搭建个人 AI 工作站处理日常内容",
   body: [
-    "Brief",
-    "Audience: Creators who want practical AI productivity gains.",
+    "简报",
+    "受众： 希望获得实用 AI 提效的创作者。",
     "",
-    "Body Draft",
-    "Turn scattered AI tools into one repeatable daily workflow.",
+    "正文草稿",
+    "把分散的 AI 工具变成可复用的每日工作流。",
     "",
-    "Cover Copy",
-    "Make the workflow visible",
+    "封面文案",
+    "让工作流可视化",
     "",
-    "Tag Suggestions",
+    "标签建议",
     "#ai",
     "#workflow",
     "#content-ops"
@@ -54,11 +54,11 @@ describe("generateMockXiaohongshuPackage", () => {
     expect(platformPackage.contentProjectId).toBe(project.id);
     expect(platformPackage.draftVersionId).toBe(draft.id);
     expect(platformPackage.title.length).toBeLessThanOrEqual(20);
-    expect(platformPackage.body).toContain("Turn scattered AI tools into one repeatable daily workflow.");
+    expect(platformPackage.body).toContain("把分散的 AI 工具变成可复用的每日工作流。");
     expect(platformPackage.tags).toEqual(["#ai", "#workflow", "#content-ops"]);
-    expect(platformPackage.coverText).toBe("Make the workflow visible");
-    expect(platformPackage.requiredAssets).toEqual(["Cover image", "1-3 supporting screenshots or workflow visuals"]);
-    expect(platformPackage.checks.map((check) => check.name)).toEqual(["Title length", "Body", "Tags", "Assets"]);
+    expect(platformPackage.coverText).toBe("让工作流可视化");
+    expect(platformPackage.requiredAssets).toEqual(["封面图", "1-3 张辅助截图或工作流视觉图"]);
+    expect(platformPackage.checks.map((check) => check.name)).toEqual(["标题长度", "正文", "标签", "素材"]);
     expect(platformPackage.createdAt).toBe("2026-05-19T13:00:00.000Z");
   });
 
@@ -67,10 +67,10 @@ describe("generateMockXiaohongshuPackage", () => {
       ...draft,
       title: "A very long title that needs trimming before Xiaohongshu publishing",
       body: [
-        "Body Draft",
+        "正文草稿",
         "Short body.",
         "",
-        "Tag Suggestions",
+        "标签建议",
         "#one",
         "#two",
         "#three",
@@ -90,9 +90,9 @@ describe("generateMockXiaohongshuPackage", () => {
     });
 
     expect(platformPackage.checks).toContainEqual({
-      name: "Tags",
+      name: "标签",
       status: "warning",
-      message: "Use 8 or fewer tags for the v0 Xiaohongshu package."
+      message: "v0 小红书发布包请使用 8 个以内标签。"
     });
   });
 });

@@ -522,7 +522,7 @@ describe("SqliteContentLoopRepository", () => {
     expect(reviewKnowledgeItem).toMatchObject({
       id: createEntityId("knowledge-item-review", reviewReport!.id),
       contentProjectId: publishRecord!.contentProjectId,
-      title: "Review lesson: How to build a personal AI workstation for daily content work"
+      title: "复盘经验： 如何搭建个人 AI 工作站处理日常内容"
     });
     expect(reviewKnowledgeItem?.lesson).toContain(reviewReport!.summary);
   });

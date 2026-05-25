@@ -5,25 +5,25 @@ export const DEFAULT_COLUMNS: Array<Pick<Column, "slug" | "name" | "description"
   {
     slug: "ai",
     name: "AI",
-    description: "AI tools, workflows, workstations, productivity, and AI knowledge explainers.",
+    description: "AI 工具、工作流、工作站、生产力和 AI 知识科普。",
     priority: 1
   },
   {
     slug: "finance",
-    name: "Finance",
-    description: "Personal finance, tools, methods, and learning notes.",
+    name: "财务",
+    description: "个人财务、工具、方法和学习笔记。",
     priority: 1
   },
   {
     slug: "parenting",
-    name: "Parenting",
-    description: "Child raising, family workflows, and daily problem solving.",
+    name: "育儿",
+    description: "育儿、家庭工作流和日常问题解决。",
     priority: 1
   },
   {
     slug: "fitness",
-    name: "Fitness",
-    description: "Swimming, gym training, habit building, equipment, and plans.",
+    name: "健身",
+    description: "游泳、健身训练、习惯养成、装备和计划。",
     priority: 1
   }
 ];
@@ -45,7 +45,7 @@ export function createDefaultWorkspaceSeed(name: string, now = new Date("2026-05
         id: personaId,
         workspaceId,
         name,
-        description: "Default creator persona.",
+        description: "默认创作者画像。",
         createdAt: timestamp,
         updatedAt: timestamp
       }

@@ -24,7 +24,7 @@ export function generateMockReviewKnowledgeItem(request: GenerateMockReviewKnowl
     archiveRecordId: request.archiveRecord.id,
     contentProjectId: request.reviewReport.contentProjectId,
     columnSlug,
-    title: `Review lesson: ${request.project.title}`,
+    title: `复盘经验： ${request.project.title}`,
     lesson: buildLesson(request.reviewReport),
     evidence: buildEvidence(request.reviewReport, request.metricSnapshot),
     tags,
@@ -34,15 +34,15 @@ export function generateMockReviewKnowledgeItem(request: GenerateMockReviewKnowl
 }
 
 function buildLesson(reviewReport: ReviewReport): string {
-  const nextAction = reviewReport.nextActions[0] ?? "Keep the review report linked to future content decisions.";
-  return `Reusable lesson: ${reviewReport.summary} Next action: ${nextAction}`;
+  const nextAction = reviewReport.nextActions[0] ?? "保持复盘报告与未来内容决策关联。";
+  return `可复用经验：${reviewReport.summary} 下一步：${nextAction}`;
 }
 
 function buildEvidence(reviewReport: ReviewReport, metricSnapshot?: MetricSnapshot | null): string {
-  const parts = [`Review Report v${reviewReport.version}`];
+  const parts = [`复盘报告 v${reviewReport.version}`];
 
   if (metricSnapshot) {
-    parts.push(`Metric snapshot ${metricSnapshot.id} at ${metricSnapshot.snapshotAt}`);
+    parts.push(`指标快照 ${metricSnapshot.id}，时间 ${metricSnapshot.snapshotAt}`);
   }
 
   return parts.join(". ");

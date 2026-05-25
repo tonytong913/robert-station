@@ -155,7 +155,7 @@ describe("createMetricImportPreview", () => {
     });
 
     expect(preview.rows[0]?.status).toBe("invalid");
-    expect(preview.rows[0]?.error).toBe("views must be a non-negative integer.");
+    expect(preview.rows[0]?.error).toBe("views 必须是非负整数。");
   });
 
   it("marks non-empty unsupported platform values as invalid before matching", () => {
@@ -171,7 +171,7 @@ describe("createMetricImportPreview", () => {
     });
 
     expect(preview.rows[0]?.status).toBe("invalid");
-    expect(preview.rows[0]?.error).toBe("Unsupported platform: bad.");
+    expect(preview.rows[0]?.error).toBe("不支持的平台：bad。");
   });
 
   it("marks unmatched rows as invalid", () => {
@@ -187,7 +187,7 @@ describe("createMetricImportPreview", () => {
     });
 
     expect(preview.rows[0]?.status).toBe("invalid");
-    expect(preview.rows[0]?.error).toBe("No matching publish record.");
+    expect(preview.rows[0]?.error).toBe("没有匹配的发布记录。");
   });
 
   it("creates deterministic metric snapshots from matched preview rows", () => {

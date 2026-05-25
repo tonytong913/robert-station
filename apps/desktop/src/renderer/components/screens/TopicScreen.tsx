@@ -1,5 +1,6 @@
 import { DEFAULT_COLUMNS, type ContentColumnSlug } from "@robert-station/core"
 import type { ChangeEvent, ReactElement } from "react"
+import { formatTopicStatus } from "../../display-labels"
 import { useTranslation, type TranslationKey } from "../../i18n"
 import { useContentLoopStore } from "../../stores/content-loop-store"
 import { Button } from "../shared/Button"
@@ -58,7 +59,7 @@ export function TopicScreen(): ReactElement {
                 <div className="topic-card__meta">
                   <StatusBadge>{column?.name ?? topic.columnSlug}</StatusBadge>
                   <StatusBadge tone={isPromoted ? "success" : "neutral"}>
-                    {isPromoted ? t("topics.promoted") : topic.status}
+                    {isPromoted ? t("topics.promoted") : formatTopicStatus(topic.status)}
                   </StatusBadge>
                 </div>
                 <h2>{topic.title}</h2>

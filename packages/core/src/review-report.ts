@@ -29,14 +29,14 @@ export function generateMockReviewReport(request: GenerateMockReviewReportReques
   if (!request.metricSnapshot) {
     return {
       ...base,
-      summary: `No imported metrics are available yet for ${request.project.title}. Treat this as a readiness review only.`,
-      highlights: ["Publish metadata is recorded and ready for metric import."],
-      underperformingSignals: ["Performance cannot be evaluated until a metric snapshot is imported."],
-      likelyCauses: [`The ${formatPlatformName(request.publishRecord.platform)} package "${packageTitle}" needs metric data before content-fit conclusions are useful.`],
+      summary: `${request.project.title} 还没有导入指标。当前仅作为发布准备度复盘。`,
+      highlights: ["发布元数据已记录，可以导入指标。"],
+      underperformingSignals: ["导入指标快照前无法评估表现。"],
+      likelyCauses: [`${formatPlatformName(request.publishRecord.platform)} 发布包「${packageTitle}」需要指标数据，才能判断内容匹配度。`],
       nextActions: [
-        "Import the latest platform metrics CSV before making performance conclusions.",
-        "Confirm the publish URL and publish time are correct.",
-        "Keep the draft, package, and source notes linked for the later performance review."
+        "先导入最新平台指标 CSV，再做表现结论。",
+        "确认发布链接和发布时间正确。",
+        "保留草稿、发布包和来源笔记之间的关联，供后续表现复盘使用。"
       ]
     };
   }
@@ -50,27 +50,27 @@ export function generateMockReviewReport(request: GenerateMockReviewReportReques
   return {
     ...base,
     metricSnapshotId: metrics.id,
-    summary: `${request.project.title} reached ${metrics.views} views with ${metrics.likes} likes, ${metrics.favorites} favorites, ${metrics.comments} comments, and ${metrics.shares} shares in the latest snapshot.`,
+    summary: `${request.project.title} 在最新快照中达到 ${metrics.views} 次浏览、${metrics.likes} 次点赞、${metrics.favorites} 次收藏、${metrics.comments} 条评论和 ${metrics.shares} 次分享。`,
     highlights: buildHighlights(likeRate, favoriteRate, commentRate, shareRate),
     underperformingSignals: buildUnderperformingSignals(metrics.views, likeRate, favoriteRate, commentRate, shareRate),
     likelyCauses: [
-      `The package angle "${packageTitle}" is the main test variable for this report.`,
-      `Publish timing was recorded as ${request.publishRecord.publishedAt}. Compare this slot with future reports before changing the topic direction.`,
-      "The current metrics suggest the next iteration should adjust the title, cover text, or opening hook before expanding into a new format."
+      `发布包角度「${packageTitle}」是本次报告的主要测试变量。`,
+      `发布时间记录为 ${request.publishRecord.publishedAt}。调整选题方向前，先和后续报告对比这个时间段。`,
+      "当前指标建议下一轮先调整标题、封面文案或开头钩子，再扩展新形式。"
     ],
     nextActions: [
-      "Keep this package as the baseline for the next iteration.",
-      "Write one alternate title and cover text before republishing a related topic.",
-      "Import another metric snapshot after the next review window to compare trend direction."
+      "将这个发布包作为下一轮迭代的基线。",
+      "重新发布相关选题前，先写一个备选标题和封面文案。",
+      "下一个复盘窗口后再导入一次指标快照，用于比较趋势方向。"
     ]
   };
 }
 
 function buildHighlights(likeRate: number, favoriteRate: number, commentRate: number, shareRate: number): string[] {
   return [
-    `Like rate is ${formatPercent(likeRate)}.`,
-    `Favorite rate is ${formatPercent(favoriteRate)}.`,
-    `Comment rate is ${formatPercent(commentRate)} and share rate is ${formatPercent(shareRate)}.`
+    `点赞率为 ${formatPercent(likeRate)}。`,
+    `收藏率为 ${formatPercent(favoriteRate)}。`,
+    `评论率为 ${formatPercent(commentRate)}，分享率为 ${formatPercent(shareRate)}。`
   ];
 }
 
@@ -82,24 +82,24 @@ function buildUnderperformingSignals(
   shareRate: number
 ): string[] {
   if (views === 0) {
-    return ["Reach is not established yet because the latest snapshot has 0 views."];
+    return ["最新快照浏览量为 0，触达尚未建立。"];
   }
 
   const signals: string[] = [];
   if (likeRate < 0.05) {
-    signals.push("Like rate is below the v0 attention threshold of 5%.");
+    signals.push("点赞率低于 v0 注意力阈值 5%。");
   }
   if (favoriteRate < 0.03) {
-    signals.push("Favorite rate is below the v0 save-intent threshold of 3%.");
+    signals.push("收藏率低于 v0 收藏意图阈值 3%。");
   }
   if (commentRate < 0.01) {
-    signals.push("Comment rate is below the v0 discussion threshold of 1%.");
+    signals.push("评论率低于 v0 讨论阈值 1%。");
   }
   if (shareRate < 0.01) {
-    signals.push("Share rate is below the v0 spread threshold of 1%.");
+    signals.push("分享率低于 v0 传播阈值 1%。");
   }
 
-  return signals.length > 0 ? signals : ["No weak engagement signal crossed the v0 thresholds."];
+  return signals.length > 0 ? signals : ["没有弱互动信号触发 v0 阈值。"];
 }
 
 function rate(value: number, views: number): number {
@@ -118,7 +118,7 @@ function formatPlatformName(platform: PublishRecord["platform"]): string {
   const names: Record<PublishRecord["platform"], string> = {
     xiaohongshu: "Xiaohongshu",
     douyin: "Douyin",
-    wechat_channels: "Wechat Channels",
+    wechat_channels: "微信视频号",
     bilibili: "Bilibili"
   };
 

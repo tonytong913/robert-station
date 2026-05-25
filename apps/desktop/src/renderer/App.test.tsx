@@ -46,13 +46,13 @@ describe("App topic and creation screens", () => {
     await screen.findByRole("heading", { name: "总览" });
     fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const topicCard = screen.getByRole("article", {
-      name: "How to build a personal AI workstation for daily content work"
+      name: "如何搭建个人 AI 工作站处理日常内容"
     });
     fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
 
     expect(await screen.findByRole("heading", { name: "创作" })).toBeInTheDocument();
     expect(screen.getByText("1 个活跃项目")).toBeInTheDocument();
-    expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
+    expect(screen.getByText("简要钩子： 把分散的 AI 工具变成可复用的每日工作流。")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
   });
 
@@ -66,7 +66,7 @@ describe("App topic and creation screens", () => {
 
     expect(
       await screen.findByRole("article", {
-        name: "A 30-minute monthly money review for busy families"
+        name: "忙碌家庭的 30 分钟月度财务复盘"
       })
     ).toBeInTheDocument();
     expect(window.robertStation.contentLoop.generateTopics).toHaveBeenCalledWith("finance");
@@ -87,7 +87,7 @@ describe("App topic and creation screens", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("选题生成失败，请重试。");
     expect(
       screen.getByRole("article", {
-        name: "How to build a personal AI workstation for daily content work"
+        name: "如何搭建个人 AI 工作站处理日常内容"
       })
     ).toBeInTheDocument();
     expect(generateButton).toBeEnabled();
@@ -100,7 +100,7 @@ describe("App topic and creation screens", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成草稿包" }));
 
     expect(await screen.findByText("草稿 v2")).toBeInTheDocument();
-    expect(screen.getByText("Title Options")).toBeInTheDocument();
+    expect(screen.getByText("标题选项")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.generateDraftPackage).toHaveBeenCalledWith(
       "project_topic-ai-local-workstation"
     );
@@ -147,20 +147,20 @@ describe("App topic and creation screens", () => {
     await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const financeTopicCard = screen.getByRole("article", {
-      name: "A simple family finance dashboard for monthly decisions"
+      name: "适合家庭月度决策的简易财务看板"
     });
     fireEvent.click(within(financeTopicCard).getByRole("button", { name: "转为项目" }));
     await screen.findByRole("heading", { name: "创作" });
 
-    expect(screen.getByText("Brief hook: A lightweight review habit beats complicated spreadsheets.")).toBeInTheDocument();
+    expect(screen.getByText("简要钩子： 轻量复盘习惯比复杂表格更有效。")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("当前项目"), {
       target: { value: "project_topic-ai-local-workstation" }
     });
 
     expect(screen.getByRole("heading", { name: "创作" })).toBeInTheDocument();
-    expect(screen.getByRole("banner")).toHaveTextContent("How to build a personal AI workstation for daily content work");
-    expect(screen.getByText("Brief hook: Turn scattered AI tools into one repeatable daily workflow.")).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent("如何搭建个人 AI 工作站处理日常内容");
+    expect(screen.getByText("简要钩子： 把分散的 AI 工具变成可复用的每日工作流。")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_finance-family-dashboard");
   });
 
@@ -185,7 +185,7 @@ describe("App topic and creation screens", () => {
     await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
 
-    expect(await screen.findByText("已归档")).toBeInTheDocument();
+    expect(await screen.findAllByText("已归档")).not.toHaveLength(0);
     expect(window.robertStation.contentLoop.archiveProject).toHaveBeenCalledWith(
       "project_topic-ai-local-workstation"
     );
@@ -226,7 +226,7 @@ describe("App publish and review screens", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
 
-    expect(await screen.findByText("已发布")).toBeInTheDocument();
+    expect(await screen.findAllByText("已发布")).not.toHaveLength(0);
     expect(screen.getByText("https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
     expect(screen.getByText("Published manually after final review.")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith(
@@ -258,7 +258,7 @@ describe("App publish and review screens", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "选题" }));
     const financeTopicCard = screen.getByRole("article", {
-      name: "A simple family finance dashboard for monthly decisions"
+      name: "适合家庭月度决策的简易财务看板"
     });
     fireEvent.click(within(financeTopicCard).getByRole("button", { name: "转为项目" }));
 
@@ -336,7 +336,7 @@ describe("App publish and review screens", () => {
   it("shows every matched metric preview row that will be saved", async () => {
     await publishXiaohongshuPackage();
     await promoteAndPublishXiaohongshuPackage(
-      "A simple family finance dashboard for monthly decisions",
+      "适合家庭月度决策的简易财务看板",
       "https://www.xiaohongshu.com/explore/finance"
     );
 
@@ -396,7 +396,7 @@ describe("App publish and review screens", () => {
 
     expect(await screen.findByText("复盘报告 v1")).toBeInTheDocument();
     expect(screen.getByText(/生成时间 /)).toBeInTheDocument();
-    expect(screen.getByText(/No imported metrics are available yet|reached/i)).toBeInTheDocument();
+    expect(screen.getByText(/还没有导入指标|达到/i)).toBeInTheDocument();
     expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledOnce();
   });
 
@@ -417,7 +417,7 @@ describe("App publish and review screens", () => {
     await publishXiaohongshuPackage();
     fireEvent.click(screen.getByRole("button", { name: "创作" }));
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
-    await screen.findByText("已归档");
+    await screen.findAllByText("已归档");
     fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     await screen.findByText("复盘报告 v1");
@@ -446,7 +446,7 @@ describe("App publish and review screens", () => {
     await publishXiaohongshuPackage();
     fireEvent.click(screen.getByRole("button", { name: "创作" }));
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
-    await screen.findByText("已归档");
+    await screen.findAllByText("已归档");
     fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
     await screen.findByText("复盘报告 v1");
@@ -467,7 +467,7 @@ describe("App publish and review screens", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("复盘报告生成失败，请重试。");
 
     await promoteAndPublishXiaohongshuPackage(
-      "A simple family finance dashboard for monthly decisions",
+      "适合家庭月度决策的简易财务看板",
       "https://www.xiaohongshu.com/explore/finance"
     );
     fireEvent.click(screen.getByRole("button", { name: "复盘" }));
@@ -483,7 +483,7 @@ describe("App publish and review screens", () => {
     await publishXiaohongshuPackage();
     const firstSelectedState = await window.robertStation.contentLoop.load();
     const firstProject = firstSelectedState.projects.find(
-      (project) => project.title === "How to build a personal AI workstation for daily content work"
+      (project) => project.title === "如何搭建个人 AI 工作站处理日常内容"
     );
     const firstPublishRecord = firstSelectedState.publishRecords.find(
       (record) => record.url === "https://www.xiaohongshu.com/explore/demo"
@@ -496,12 +496,12 @@ describe("App publish and review screens", () => {
     expect(screen.getByRole("button", { name: "生成中..." })).toBeDisabled();
 
     await promoteAndPublishXiaohongshuPackage(
-      "A simple family finance dashboard for monthly decisions",
+      "适合家庭月度决策的简易财务看板",
       "https://www.xiaohongshu.com/explore/finance"
     );
     fireEvent.click(screen.getByRole("button", { name: "复盘" }));
     expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
-      "A simple family finance dashboard for monthly decisions"
+      "适合家庭月度决策的简易财务看板"
     );
 
     deferredReview.resolve({
@@ -527,11 +527,11 @@ describe("App publish and review screens", () => {
 
     await waitFor(() => {
       expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).toHaveTextContent(
-        "A simple family finance dashboard for monthly decisions"
+        "适合家庭月度决策的简易财务看板"
       );
     });
     expect(within(screen.getByRole("banner")).getByRole("heading", { level: 1 })).not.toHaveTextContent(
-      "How to build a personal AI workstation for daily content work"
+      "如何搭建个人 AI 工作站处理日常内容"
     );
     expect(screen.queryByText("Stale first project report summary")).not.toBeInTheDocument();
   });
@@ -543,12 +543,12 @@ describe("App knowledge screen", () => {
 
     await promoteFirstTopicToProject();
     fireEvent.click(screen.getByRole("button", { name: "归档项目" }));
-    await screen.findByText("已归档");
+    await screen.findAllByText("已归档");
     fireEvent.click(screen.getByRole("button", { name: "知识库" }));
 
     expect(screen.getByRole("heading", { name: "知识库" })).toBeInTheDocument();
-    expect(screen.getByText(/Reusable lesson:/)).toBeInTheDocument();
-    expect(screen.getByText(/source reference.*platform package/)).toBeInTheDocument();
+    expect(screen.getByText(/可复用经验：/)).toBeInTheDocument();
+    expect(screen.getByText(/条来源引用.*个发布包/)).toBeInTheDocument();
   });
 });
 
@@ -557,7 +557,7 @@ async function publishXiaohongshuPackage(): Promise<void> {
 
   await screen.findByRole("heading", { name: "总览" });
   await promoteAndPublishXiaohongshuPackage(
-    "How to build a personal AI workstation for daily content work",
+    "如何搭建个人 AI 工作站处理日常内容",
     "https://www.xiaohongshu.com/explore/demo"
   );
 }
@@ -576,14 +576,14 @@ async function promoteAndPublishXiaohongshuPackage(topicName: string, publishUrl
   });
   fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
 
-  await screen.findByText("已发布");
+  await screen.findAllByText("已发布");
 }
 
 async function promoteFirstTopicToProject(): Promise<void> {
   await screen.findByRole("heading", { name: "总览" });
   fireEvent.click(screen.getByRole("button", { name: "选题" }));
   const topicCard = screen.getByRole("article", {
-    name: "How to build a personal AI workstation for daily content work"
+    name: "如何搭建个人 AI 工作站处理日常内容"
   });
   fireEvent.click(within(topicCard).getByRole("button", { name: "转为项目" }));
 

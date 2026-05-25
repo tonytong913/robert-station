@@ -57,7 +57,7 @@ export function generateMockArchivePackage(request: GenerateMockArchivePackageRe
     contentProjectId: request.project.id,
     columnSlug,
     title,
-    lesson: `Reusable lesson: ${request.topic?.hook || request.draft?.body || request.project.title}`,
+    lesson: `可复用经验：${request.topic?.hook || request.draft?.body || request.project.title}`,
     evidence: buildEvidence(request.sourceReferences.length, packageCount),
     tags: [columnSlug, request.platformPackage?.platform ?? "local", "archive"],
     createdAt: timestamp,
@@ -76,24 +76,29 @@ function buildSummary(request: GenerateMockArchivePackageRequest): string {
   const parts = [lead];
 
   if (request.draft?.title) {
-    parts.push(`Latest draft: ${request.draft.title}.`);
+    parts.push(`最新草稿：${request.draft.title}。`);
   }
 
   if (request.platformPackage) {
-    parts.push(`${formatPlatformName(request.platformPackage.platform)} package: ${request.platformPackage.title}.`);
+    parts.push(`${formatPlatformName(request.platformPackage.platform)}发布包：${request.platformPackage.title}。`);
   }
 
-  parts.push(`${formatCount(request.sourceReferences.length, "source reference")} archived.`);
+  parts.push(`已归档 ${formatCount(request.sourceReferences.length, "source reference")}。`);
 
   return parts.join(" ");
 }
 
 function buildEvidence(sourceCount: number, packageCount: number): string {
-  return `${formatCount(sourceCount, "source reference")} and ${formatCount(packageCount, "platform package")} archived.`;
+  return `已归档 ${formatCount(sourceCount, "source reference")} 和 ${formatCount(packageCount, "platform package")}。`;
 }
 
 function formatCount(count: number, label: string): string {
-  return `${count} ${label}${count === 1 ? "" : "s"}`;
+  const names: Record<string, string> = {
+    "source reference": "条来源引用",
+    "platform package": "个发布包"
+  };
+
+  return `${count} ${names[label] ?? label}`;
 }
 
 function formatPlatformName(platform: Platform): string {

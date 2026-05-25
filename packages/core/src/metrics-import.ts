@@ -41,7 +41,7 @@ export function createMetricImportPreview(request: CreateMetricImportPreviewRequ
   if (request.input.csvText.trim() === "") {
     return {
       ...basePreview,
-      rows: [createInvalidPreviewRow({ rowNumber: 1, snapshotAt: createdAt, error: "CSV file is empty." })]
+      rows: [createInvalidPreviewRow({ rowNumber: 1, snapshotAt: createdAt, error: "CSV 文件为空。" })]
     };
   }
 
@@ -52,7 +52,7 @@ export function createMetricImportPreview(request: CreateMetricImportPreviewRequ
   if (missingHeader) {
     return {
       ...basePreview,
-      rows: [createInvalidPreviewRow({ rowNumber: 1, snapshotAt: createdAt, error: `Missing CSV header: ${missingHeader}.` })]
+      rows: [createInvalidPreviewRow({ rowNumber: 1, snapshotAt: createdAt, error: `缺少 CSV 表头：${missingHeader}。` })]
     };
   }
 
@@ -164,7 +164,7 @@ function createPreviewRow(request: {
     return {
       ...baseRow,
       status: "invalid",
-      error: "No matching publish record."
+      error: "没有匹配的发布记录。"
     };
   }
 
@@ -212,7 +212,7 @@ function parseMetrics(cells: string[], headerIndexes: Map<CsvHeader, number>): {
     if (!NON_NEGATIVE_INTEGER_PATTERN.test(value)) {
       return {
         metrics,
-        error: `${field} must be a non-negative integer.`
+        error: `${field} 必须是非负整数。`
       };
     }
 
@@ -230,7 +230,7 @@ function parsePlatform(value: string): { platform: Platform; error?: string } {
   if (!SUPPORTED_PLATFORMS.has(value as Platform)) {
     return {
       platform: "xiaohongshu",
-      error: `Unsupported platform: ${value}.`
+      error: `不支持的平台：${value}。`
     };
   }
 

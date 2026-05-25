@@ -1,5 +1,6 @@
 import { DEFAULT_COLUMNS } from "@robert-station/core"
 import type { ChangeEvent, ReactElement } from "react"
+import { formatProjectStatus } from "../../display-labels"
 import { useTranslation } from "../../i18n"
 import { useContentLoopStore } from "../../stores/content-loop-store"
 import { StatusBadge } from "../shared/StatusBadge"
@@ -32,7 +33,7 @@ export function WorkspaceHeader(): ReactElement {
           <div className="workspace-header__project">
             <h1>{selectedProject.title}</h1>
             <div className="workspace-header__badges workspace-header__meta">
-              <StatusBadge>{selectedProject.status}</StatusBadge>
+              <StatusBadge>{formatProjectStatus(selectedProject.status)}</StatusBadge>
               {selectedColumn ? <span>{selectedColumn.name}</span> : null}
             </div>
           </div>

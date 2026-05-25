@@ -6,9 +6,9 @@ const topic: Topic = {
   id: "topic_ai_local-workstation",
   workspaceId: "workspace_robert-station",
   columnSlug: "ai",
-  title: "How to build a personal AI workstation for daily content work",
-  hook: "Turn scattered AI tools into one repeatable daily workflow.",
-  audience: "Creators who want practical AI productivity gains.",
+  title: "如何搭建个人 AI 工作站处理日常内容",
+  hook: "把分散的 AI 工具变成可复用的每日工作流。",
+  audience: "希望获得实用 AI 提效的创作者。",
   targetPlatforms: ["xiaohongshu", "bilibili"],
   status: "promoted",
   score: { heat: 86, fit: 92, difficulty: 48, personaConsistency: 90 },
@@ -53,13 +53,13 @@ describe("generateMockDraftPackage", () => {
     expect(draft.id).toBe("draft_project-topic-ai-local-workstation-2");
     expect(draft.version).toBe(2);
     expect(draft.createdBy).toBe("assistant");
-    expect(draft.body).toContain("Brief");
-    expect(draft.body).toContain("Title Options");
-    expect(draft.body).toContain("Body Draft");
-    expect(draft.body).toContain("Cover Copy");
-    expect(draft.body).toContain("Tag Suggestions");
-    expect(draft.body).toContain("Visual Direction");
-    expect(draft.body).toContain("Pending Verification");
+    expect(draft.body).toContain("简报");
+    expect(draft.body).toContain("标题选项");
+    expect(draft.body).toContain("正文草稿");
+    expect(draft.body).toContain("封面文案");
+    expect(draft.body).toContain("标签建议");
+    expect(draft.body).toContain("视觉方向");
+    expect(draft.body).toContain("待核实");
   });
 
   it("carries source notes into pending verification", () => {
@@ -72,6 +72,6 @@ describe("generateMockDraftPackage", () => {
     });
 
     expect(draft.body).toContain("Verify tool availability and pricing before publishing.");
-    expect(draft.body).toContain("Turn scattered AI tools into one repeatable daily workflow.");
+    expect(draft.body).toContain("把分散的 AI 工具变成可复用的每日工作流。");
   });
 });
