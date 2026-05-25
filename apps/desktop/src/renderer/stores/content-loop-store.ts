@@ -21,6 +21,7 @@ import {
   addPersistedSourceReference,
   archivePersistedProject,
   createPersistedContentLoopExport,
+  createPersistedTopicFromSourceReference,
   extractPersistedReviewKnowledge,
   filterPersistedSourceReferences,
   generatePersistedDraftPackage,
@@ -116,6 +117,7 @@ type ContentLoopStoreState = AsyncState &
     extractReviewKnowledge: (reviewReportId: string) => Promise<void>
     addSourceReference: (input: ManualSourceReferenceInput) => Promise<void>
     filterSourceReferences: (filter: SourceReferenceFilter) => Promise<void>
+    createTopicFromSourceReference: (sourceReferenceId: string) => Promise<void>
     createContentLoopExport: (format: ContentLoopExportFormat) => Promise<void>
     reset: () => void
   }
@@ -414,6 +416,16 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false }))
     } catch {
       set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.sourceFilterFailed" })
+    }
+  },
+  createTopicFromSourceReference: async (sourceReferenceId) => {
+    set({ isAddingSourceReference: true, sourceLibraryError: null })
+
+    try {
+      const contentLoop = await createPersistedTopicFromSourceReference(sourceReferenceId)
+      set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false, screen: "topics" }))
+    } catch {
+      set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.topicCreateFailed" })
     }
   },
   createContentLoopExport: async (format) => {

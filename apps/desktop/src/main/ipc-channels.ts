@@ -11,6 +11,7 @@ export const CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL = "content-loop:import-metri
 export const CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL = "content-loop:save-metric-import";
 export const CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL = "content-loop:add-source-reference";
 export const CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL = "content-loop:filter-source-references";
+export const CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL = "content-loop:create-topic-from-source-reference";
 export const CONTENT_LOOP_CREATE_EXPORT_CHANNEL = "content-loop:create-export";
 export const CONTENT_LOOP_START_TASK_RUN_CHANNEL = "content-loop:start-task-run";
 export const CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL = "content-loop:advance-task-run";

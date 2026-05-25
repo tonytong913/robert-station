@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createManualSourceReference,
+  createTopicFromSourceReference,
   filterSourceReferences,
   markSourceReferenceUsed
 } from "./source-library";
@@ -99,5 +100,40 @@ describe("source library", () => {
       contentProjectId: "project_ai_workflow",
       updatedAt: now.toISOString()
     });
+  });
+
+  it("creates a candidate topic from a source reference and marks the source as used", () => {
+    const source = createManualSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信长文导出案例",
+      url: "https://example.com/wechat-case",
+      platform: "wechat_channels",
+      excerpt: "多格式导出和资源缓存值得参考。",
+      note: "适合作为资料库能力参考。",
+      now
+    });
+
+    const result = createTopicFromSourceReference(source, now);
+
+    expect(result.topic).toMatchObject({
+      id: "topic_source-wechat-case",
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信长文导出案例",
+      hook: "多格式导出和资源缓存值得参考。",
+      audience: "关注该主题的目标读者。",
+      targetPlatforms: ["wechat_channels"],
+      status: "candidate",
+      score: { heat: 60, fit: 75, difficulty: 35, personaConsistency: 70 },
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
+    });
+    expect(result.sourceReference).toMatchObject({
+      topicId: "topic_source-wechat-case",
+      usageStatus: "used",
+      updatedAt: now.toISOString()
+    });
+    expect(source.topicId).toBeUndefined();
   });
 });

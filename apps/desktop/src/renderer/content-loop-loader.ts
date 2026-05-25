@@ -70,6 +70,12 @@ export async function filterPersistedSourceReferences(
   return window.robertStation.contentLoop.filterSourceReferences(filter);
 }
 
+export async function createPersistedTopicFromSourceReference(
+  sourceReferenceId: string
+): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.createTopicFromSourceReference(sourceReferenceId);
+}
+
 export async function createPersistedContentLoopExport(
   format: ContentLoopExportFormat
 ): Promise<ContentLoopExportFile> {

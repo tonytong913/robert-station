@@ -8,6 +8,7 @@ import {
   CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL,
   CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL,
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL,
   CONTENT_LOOP_CREATE_EXPORT_CHANNEL,
   CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL,
@@ -318,6 +319,26 @@ describe("registerContentLoopIpc", () => {
     expect(repository.filterSourceReferences).toHaveBeenCalledWith({ columnSlug: "ai", query: "资料库" });
   });
 
+  it("rejects invalid source reference ids before creating a topic", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getCreateTopicFromSourceReferenceHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, "")).rejects.toThrow("Invalid source reference id.");
+    expect(repository.createTopicFromSourceReference).not.toHaveBeenCalled();
+  });
+
+  it("creates topics from source references through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getCreateTopicFromSourceReferenceHandler();
+    await handler({} as IpcMainInvokeEvent, "source_wechat-case");
+
+    expect(repository.createTopicFromSourceReference).toHaveBeenCalledWith("source_wechat-case");
+  });
+
   it("starts and advances task runs through the repository", async () => {
     const repository = createRepository();
     registerContentLoopIpc(repository);
@@ -359,6 +380,7 @@ function createRepository(): ContentLoopRepository {
     promoteTopic: vi.fn(async () => emptyState),
     addSourceReference: vi.fn(async () => emptyState),
     filterSourceReferences: vi.fn(async () => emptyState),
+    createTopicFromSourceReference: vi.fn(async () => emptyState),
     markSourceReferenceUsed: vi.fn(async () => emptyState),
     createContentLoopExport: vi.fn(async () => ({
       fileName: "robert-station-export.md",
@@ -510,6 +532,21 @@ function getFilterSourceReferencesHandler(): (event: IpcMainInvokeEvent, filter:
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, filter: unknown) => Promise<unknown>;
+}
+
+function getCreateTopicFromSourceReferenceHandler(): (
+  event: IpcMainInvokeEvent,
+  sourceReferenceId: unknown
+) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Create topic from source reference IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, sourceReferenceId: unknown) => Promise<unknown>;
 }
 
 function getStartTaskRunHandler(): (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown> {

@@ -29,6 +29,7 @@ declare global {
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
         addSourceReference: (input: ManualSourceReferenceInput) => Promise<PersistedContentLoopState>;
         filterSourceReferences: (filter: SourceReferenceFilter) => Promise<PersistedContentLoopState>;
+        createTopicFromSourceReference: (sourceReferenceId: string) => Promise<PersistedContentLoopState>;
         createContentLoopExport: (format: ContentLoopExportFormat) => Promise<ContentLoopExportFile>;
         startTaskRun: (input: CreateTaskRunInput) => Promise<PersistedContentLoopState>;
         advanceTaskRun: (taskRunId: string, input: AdvanceTaskRunInput) => Promise<PersistedContentLoopState>;

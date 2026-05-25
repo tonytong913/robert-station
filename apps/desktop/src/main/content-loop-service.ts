@@ -17,6 +17,7 @@ import {
   CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL,
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
   CONTENT_LOOP_CREATE_EXPORT_CHANNEL,
+  CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL,
   CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
@@ -131,6 +132,13 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
     }
 
     return repository.filterSourceReferences(filter);
+  });
+  ipcMain.handle(CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL, async (_event, sourceReferenceId: unknown) => {
+    if (typeof sourceReferenceId !== "string" || sourceReferenceId.length === 0) {
+      throw new Error("Invalid source reference id.");
+    }
+
+    return repository.createTopicFromSourceReference(sourceReferenceId);
   });
   ipcMain.handle(CONTENT_LOOP_CREATE_EXPORT_CHANNEL, async (_event, format: unknown) => {
     if (!isContentLoopExportFormat(format)) {

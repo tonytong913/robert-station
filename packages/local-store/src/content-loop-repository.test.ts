@@ -143,6 +143,34 @@ describe("InMemoryContentLoopRepository", () => {
     });
   });
 
+  it("creates topics from source references in memory", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterAdd = await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信长文导出案例",
+      url: "https://example.com/wechat-case",
+      platform: "wechat_channels",
+      excerpt: "多格式导出和资源缓存值得参考。"
+    });
+    const sourceId = afterAdd.sourceReferences.find((source) => source.title === "微信长文导出案例")?.id;
+
+    if (!sourceId) {
+      throw new Error("Expected a source reference to be added.");
+    }
+
+    const afterCreate = await repository.createTopicFromSourceReference(sourceId);
+
+    expect(afterCreate.topics.find((topic) => topic.id === "topic_source-wechat-case")).toMatchObject({
+      title: "微信长文导出案例",
+      targetPlatforms: ["wechat_channels"]
+    });
+    expect(afterCreate.sourceReferences.find((source) => source.id === sourceId)).toMatchObject({
+      topicId: "topic_source-wechat-case",
+      usageStatus: "used"
+    });
+  });
+
   it("creates export files from in-memory state", async () => {
     const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
 

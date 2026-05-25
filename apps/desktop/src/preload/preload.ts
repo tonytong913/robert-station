@@ -16,6 +16,7 @@ import {
   CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL,
   CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL,
   CONTENT_LOOP_CREATE_EXPORT_CHANNEL,
+  CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL,
   CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
   CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL,
   CONTENT_LOOP_GENERATE_DRAFT_PACKAGE_CHANNEL,
@@ -58,6 +59,8 @@ contextBridge.exposeInMainWorld("robertStation", {
       ipcRenderer.invoke(CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL, input) as Promise<PersistedContentLoopState>,
     filterSourceReferences: (filter: SourceReferenceFilter) =>
       ipcRenderer.invoke(CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL, filter) as Promise<PersistedContentLoopState>,
+    createTopicFromSourceReference: (sourceReferenceId: string) =>
+      ipcRenderer.invoke(CONTENT_LOOP_CREATE_TOPIC_FROM_SOURCE_REFERENCE_CHANNEL, sourceReferenceId) as Promise<PersistedContentLoopState>,
     createContentLoopExport: (format: ContentLoopExportFormat) =>
       ipcRenderer.invoke(CONTENT_LOOP_CREATE_EXPORT_CHANNEL, format) as Promise<ContentLoopExportFile>,
     startTaskRun: (input: CreateTaskRunInput) =>

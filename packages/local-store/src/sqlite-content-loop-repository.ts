@@ -12,6 +12,7 @@ import {
   createDefaultWorkspaceSeed,
   createManualPublishRecord,
   createManualSourceReference,
+  createTopicFromSourceReference,
   createMetricImportPreview,
   createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
@@ -351,6 +352,25 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       ...state,
       sourceReferences: filterSourceReferences(state.sourceReferences, filter)
     };
+  }
+
+  async createTopicFromSourceReference(sourceReferenceId: string): Promise<PersistedContentLoopState> {
+    const row = this.database
+      .prepare("SELECT * FROM source_references WHERE id = ?;")
+      .get(sourceReferenceId) as SourceReferenceRow | undefined;
+
+    if (!row) {
+      return this.loadState();
+    }
+
+    const result = createTopicFromSourceReference(mapSourceReferenceRow(row), this.createPromotionDate());
+
+    this.runTransaction(() => {
+      this.upsertTopic(result.topic);
+      this.upsertSourceReference(result.sourceReference);
+    });
+
+    return this.loadState();
   }
 
   async markSourceReferenceUsed(

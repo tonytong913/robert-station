@@ -4,7 +4,8 @@ import type {
   Platform,
   SourceExtractionStatus,
   SourceReference,
-  SourceUsageStatus
+  SourceUsageStatus,
+  Topic
 } from "./types";
 
 export interface ManualSourceReferenceInput {
@@ -108,6 +109,37 @@ export function markSourceReferenceUsed(
     contentProjectId,
     usageStatus: "used",
     updatedAt: now.toISOString()
+  };
+}
+
+export function createTopicFromSourceReference(
+  source: SourceReference,
+  now = new Date()
+): { topic: Topic; sourceReference: SourceReference } {
+  const timestamp = now.toISOString();
+  const topicId = createEntityId("topic", source.id);
+  const topic: Topic = {
+    id: topicId,
+    workspaceId: source.workspaceId,
+    columnSlug: source.columnSlug ?? "ai",
+    title: source.title,
+    hook: source.excerpt?.trim() || source.note.trim() || "从资料库沉淀一个可展开的内容选题。",
+    audience: "关注该主题的目标读者。",
+    targetPlatforms: source.platform ? [source.platform] : ["xiaohongshu"],
+    status: "candidate",
+    score: { heat: 60, fit: 75, difficulty: 35, personaConsistency: 70 },
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  return {
+    topic,
+    sourceReference: {
+      ...source,
+      topicId,
+      usageStatus: "used",
+      updatedAt: timestamp
+    }
   };
 }
 

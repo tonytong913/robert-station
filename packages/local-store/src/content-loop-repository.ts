@@ -13,6 +13,7 @@ import {
   createEntityId,
   createManualPublishRecord,
   createManualSourceReference,
+  createTopicFromSourceReference,
   createMetricImportPreview,
   createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
@@ -81,6 +82,7 @@ export interface ContentLoopRepository {
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
   addSourceReference(input: ManualSourceReferenceInput): Promise<PersistedContentLoopState>;
   filterSourceReferences(filter: SourceReferenceFilter): Promise<PersistedContentLoopState>;
+  createTopicFromSourceReference(sourceReferenceId: string): Promise<PersistedContentLoopState>;
   markSourceReferenceUsed(sourceReferenceId: string, contentProjectId: string): Promise<PersistedContentLoopState>;
   createContentLoopExport(format: ContentLoopExportFormat): Promise<ContentLoopExportFile>;
   startTaskRun(input: CreateTaskRunInput): Promise<PersistedContentLoopState>;
@@ -221,6 +223,26 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       ...cloneState(this.state),
       sourceReferences: filterSourceReferences(this.state.sourceReferences, filter)
     };
+  }
+
+  async createTopicFromSourceReference(sourceReferenceId: string): Promise<PersistedContentLoopState> {
+    const sourceReference = this.state.sourceReferences.find((source) => source.id === sourceReferenceId);
+
+    if (!sourceReference) {
+      return cloneState(this.state);
+    }
+
+    const result = createTopicFromSourceReference(sourceReference);
+
+    this.state = {
+      ...this.state,
+      topics: [result.topic, ...this.state.topics.filter((topic) => topic.id !== result.topic.id)],
+      sourceReferences: this.state.sourceReferences.map((source) =>
+        source.id === sourceReferenceId ? result.sourceReference : source
+      )
+    };
+
+    return cloneState(this.state);
   }
 
   async markSourceReferenceUsed(
