@@ -1,8 +1,11 @@
 import type {
   ArchiveRecord,
   ContentColumnSlug,
+  ContentLoopExportFile,
+  ContentLoopExportFormat,
   ContentProject,
   DraftVersion,
+  ManualSourceReferenceInput,
   ManualPublishInput,
   MetricImportPreviewRow,
   MetricSnapshot,
@@ -14,7 +17,9 @@ import { createEntityId } from "@robert-station/core"
 import type { PersistedContentLoopState } from "@robert-station/local-store"
 import { create } from "zustand"
 import {
+  addPersistedSourceReference,
   archivePersistedProject,
+  createPersistedContentLoopExport,
   extractPersistedReviewKnowledge,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
@@ -50,6 +55,8 @@ type AsyncState = {
   isSavingMetricImport: boolean
   isGeneratingReviewReport: boolean
   isExtractingReviewKnowledge: boolean
+  isAddingSourceReference: boolean
+  isCreatingExport: boolean
   loadErrorKey: string | null
   promoteTopicError: string | null
   topicGenerationError: string | null
@@ -61,6 +68,8 @@ type AsyncState = {
   metricSaveError: string | null
   reviewReportError: string | null
   reviewKnowledgeError: string | null
+  sourceLibraryError: string | null
+  exportError: string | null
 }
 
 type DerivedState = {
@@ -86,6 +95,7 @@ type ContentLoopStoreState = AsyncState &
     selectedReviewReportId: string | null
     manualPublishDraft: ManualPublishDraft
     reviewKnowledgeResult: ReviewKnowledgeResult | null
+    lastExportFile: ContentLoopExportFile | null
     setScreen: (screen: TaskScreen) => void
     setTopicGenerationColumn: (columnSlug: ContentColumnSlug) => void
     setManualPublishDraft: (partialDraft: ManualPublishDraftInput) => void
@@ -102,6 +112,8 @@ type ContentLoopStoreState = AsyncState &
     saveMetricImport: () => Promise<void>
     generateReviewReport: (publishRecordId: string) => Promise<void>
     extractReviewKnowledge: (reviewReportId: string) => Promise<void>
+    addSourceReference: (input: ManualSourceReferenceInput) => Promise<void>
+    createContentLoopExport: (format: ContentLoopExportFormat) => Promise<void>
     reset: () => void
   }
 
@@ -117,6 +129,8 @@ const initialAsyncState: AsyncState = {
   isSavingMetricImport: false,
   isGeneratingReviewReport: false,
   isExtractingReviewKnowledge: false,
+  isAddingSourceReference: false,
+  isCreatingExport: false,
   loadErrorKey: null,
   promoteTopicError: null,
   topicGenerationError: null,
@@ -127,7 +141,9 @@ const initialAsyncState: AsyncState = {
   metricImportError: null,
   metricSaveError: null,
   reviewReportError: null,
-  reviewKnowledgeError: null
+  reviewKnowledgeError: null,
+  sourceLibraryError: null,
+  exportError: null
 }
 
 const initialDerivedState: DerivedState = {
@@ -153,6 +169,7 @@ function createInitialState() {
     selectedReviewReportId: null,
     manualPublishDraft: createDefaultManualPublishDraft(),
     reviewKnowledgeResult: null,
+    lastExportFile: null,
     ...initialAsyncState,
     ...initialDerivedState
   }
@@ -374,6 +391,26 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       if (get().selectedReviewReportId === reviewReportId) {
         set({ isExtractingReviewKnowledge: false, reviewKnowledgeError: "review.extractFailed" })
       }
+    }
+  },
+  addSourceReference: async (input) => {
+    set({ isAddingSourceReference: true, sourceLibraryError: null })
+
+    try {
+      const contentLoop = await addPersistedSourceReference(input)
+      set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false }))
+    } catch {
+      set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.sourceAddFailed" })
+    }
+  },
+  createContentLoopExport: async (format) => {
+    set({ isCreatingExport: true, exportError: null, lastExportFile: null })
+
+    try {
+      const lastExportFile = await createPersistedContentLoopExport(format)
+      set({ lastExportFile, isCreatingExport: false })
+    } catch {
+      set({ isCreatingExport: false, exportError: "knowledge.exportFailed" })
     }
   },
   reset: () => set(createInitialState())

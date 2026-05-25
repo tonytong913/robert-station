@@ -1,4 +1,14 @@
-import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
+import type {
+  AdvanceTaskRunInput,
+  ContentColumnSlug,
+  ContentLoopExportFile,
+  ContentLoopExportFormat,
+  CreateTaskRunInput,
+  ManualPublishInput,
+  ManualSourceReferenceInput,
+  Platform,
+  SourceReferenceFilter
+} from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 
 export async function loadPersistedContentLoop(): Promise<PersistedContentLoopState> {
@@ -46,4 +56,33 @@ export async function generatePersistedReviewReport(publishRecordId: string): Pr
 
 export async function extractPersistedReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState> {
   return window.robertStation.contentLoop.extractReviewKnowledge(reviewReportId);
+}
+
+export async function addPersistedSourceReference(
+  input: ManualSourceReferenceInput
+): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.addSourceReference(input);
+}
+
+export async function filterPersistedSourceReferences(
+  filter: SourceReferenceFilter
+): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.filterSourceReferences(filter);
+}
+
+export async function createPersistedContentLoopExport(
+  format: ContentLoopExportFormat
+): Promise<ContentLoopExportFile> {
+  return window.robertStation.contentLoop.createContentLoopExport(format);
+}
+
+export async function startPersistedTaskRun(input: CreateTaskRunInput): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.startTaskRun(input);
+}
+
+export async function advancePersistedTaskRun(
+  taskRunId: string,
+  input: AdvanceTaskRunInput
+): Promise<PersistedContentLoopState> {
+  return window.robertStation.contentLoop.advanceTaskRun(taskRunId, input);
 }

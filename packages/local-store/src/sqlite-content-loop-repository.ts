@@ -1,11 +1,22 @@
 import { DatabaseSync } from "node:sqlite";
 import {
+  isAgentDraftPackage,
+  isGenerateTopicsOutput,
+  type ContentAgentRuntime,
+  type GenerateDraftInput
+} from "@robert-station/agent-runtime";
+import {
+  advanceTaskRun,
   createContentProjectFromTopic,
+  createContentLoopExport,
   createDefaultWorkspaceSeed,
   createManualPublishRecord,
+  createManualSourceReference,
   createMetricImportPreview,
   createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
+  createTaskRun,
+  filterSourceReferences,
   generateMockArchivePackage,
   generateMockDraftPackage,
   generateMockReviewKnowledgeItem,
@@ -15,11 +26,17 @@ import {
 } from "@robert-station/core";
 import type {
   ArchiveRecord,
+  AdvanceTaskRunInput,
   ContentColumnSlug,
+  ContentLoopSeed,
+  ContentLoopExportFile,
+  ContentLoopExportFormat,
   ContentProject,
   ContentProjectStatus,
+  CreateTaskRunInput,
   DraftVersion,
   KnowledgeItem,
+  ManualSourceReferenceInput,
   ManualPublishInput,
   MetricCsvImportInput,
   MetricImportPreview,
@@ -30,12 +47,24 @@ import type {
   PublishRecord,
   ReviewReport,
   SourceReference,
+  SourceReferenceFilter,
+  SourceExtractionStatus,
   SourceReferenceKind,
+  SourceUsageStatus,
+  TaskRun,
+  TaskRunKind,
+  TaskRunPhase,
+  TaskRunStatus,
   Topic,
   TopicScore,
   TopicStatus
 } from "@robert-station/core";
-import type { ContentLoopRepository, PersistedContentLoopState } from "./content-loop-repository";
+import {
+  createDraftFromAgentOutput,
+  createTopicsFromAgentOutput,
+  type ContentLoopRepository,
+  type PersistedContentLoopState
+} from "./content-loop-repository";
 import { getSqliteSchemaStatements } from "./schema";
 
 const WORKSPACE_NAME = "Robert Station";
@@ -43,6 +72,7 @@ const WORKSPACE_ID = "workspace_robert-station";
 
 interface SqliteContentLoopRepositoryOptions {
   databasePath: string;
+  agentRuntime?: ContentAgentRuntime;
 }
 
 interface TopicRow {
@@ -62,11 +92,19 @@ interface TopicRow {
 interface SourceReferenceRow {
   id: string;
   workspace_id: string;
+  column_slug: string | null;
   topic_id: string | null;
   content_project_id: string | null;
   kind: string;
   title: string;
   url: string | null;
+  platform: string | null;
+  author: string | null;
+  published_at: string | null;
+  extraction_status: string;
+  usage_status: string;
+  excerpt: string;
+  tags_json: string;
   note: string;
   created_at: string;
   updated_at: string;
@@ -188,16 +226,36 @@ interface KnowledgeItemRow {
   updated_at: string;
 }
 
+interface TaskRunRow {
+  id: string;
+  workspace_id: string;
+  kind: string;
+  label: string;
+  phase: string;
+  status: string;
+  completed_count: number;
+  total_count: number;
+  message: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class SqliteContentLoopRepository implements ContentLoopRepository {
   private metricImportPreview: MetricImportPreview | null = null;
 
-  private constructor(private readonly database: DatabaseSync) {}
+  private constructor(
+    private readonly database: DatabaseSync,
+    private readonly options: Omit<SqliteContentLoopRepositoryOptions, "databasePath"> = {}
+  ) {}
 
   static open(options: SqliteContentLoopRepositoryOptions): SqliteContentLoopRepository {
     const database = new DatabaseSync(options.databasePath);
 
     try {
-      const repository = new SqliteContentLoopRepository(database);
+      const repository = new SqliteContentLoopRepository(
+        database,
+        options.agentRuntime ? { agentRuntime: options.agentRuntime } : {}
+      );
       repository.initialize();
       return repository;
     } catch (error) {
@@ -215,7 +273,21 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   }
 
   async generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
-    const generated = generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now: this.createPromotionDate() });
+    const now = this.createPromotionDate();
+    let generated: ContentLoopSeed;
+
+    try {
+      const runtimeOutput = await this.options.agentRuntime?.generateTopics({
+        columnSlug,
+        workspaceId: WORKSPACE_ID,
+        now
+      });
+      generated = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
+        ? createTopicsFromAgentOutput({ columnSlug, workspaceId: WORKSPACE_ID, now, output: runtimeOutput })
+        : generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now });
+    } catch {
+      generated = generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now });
+    }
 
     this.runTransaction(() => {
       for (const topic of generated.topics) {
@@ -239,19 +311,102 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
 
     const topic = project.sourceTopicId ? this.getTopic(project.sourceTopicId) : null;
     const sourceReferences = this.getSourceReferencesForProject(project);
-    const draft = generateMockDraftPackage({
+    const draftInput: GenerateDraftInput = {
       project,
       topic,
       sourceReferences,
       nextVersion: this.getNextDraftVersion(project.id),
       now: this.createPromotionDate()
-    });
+    };
+    let draft: DraftVersion;
+
+    try {
+      const runtimeOutput = await this.options.agentRuntime?.generateDraft(draftInput);
+      draft = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
+        ? createDraftFromAgentOutput(draftInput, runtimeOutput)
+        : generateMockDraftPackage(draftInput);
+    } catch {
+      draft = generateMockDraftPackage(draftInput);
+    }
 
     this.runTransaction(() => {
       this.upsertDraftVersion(draft);
     });
 
     return this.loadState(project.id);
+  }
+
+  async addSourceReference(input: ManualSourceReferenceInput): Promise<PersistedContentLoopState> {
+    const sourceReference = createManualSourceReference(input);
+
+    this.upsertSourceReference(sourceReference);
+
+    return this.loadState();
+  }
+
+  async filterSourceReferences(filter: SourceReferenceFilter): Promise<PersistedContentLoopState> {
+    const state = this.loadState();
+
+    return {
+      ...state,
+      sourceReferences: filterSourceReferences(state.sourceReferences, filter)
+    };
+  }
+
+  async markSourceReferenceUsed(
+    sourceReferenceId: string,
+    contentProjectId: string
+  ): Promise<PersistedContentLoopState> {
+    const row = this.database
+      .prepare("SELECT * FROM source_references WHERE id = ?;")
+      .get(sourceReferenceId) as SourceReferenceRow | undefined;
+
+    if (!row) {
+      return this.loadState();
+    }
+
+    this.upsertSourceReference({
+      ...mapSourceReferenceRow(row),
+      contentProjectId,
+      usageStatus: "used",
+      updatedAt: this.createPromotionDate().toISOString()
+    });
+
+    return this.loadState();
+  }
+
+  async createContentLoopExport(format: ContentLoopExportFormat): Promise<ContentLoopExportFile> {
+    const state = this.loadState();
+
+    return createContentLoopExport(
+      {
+        sources: state.sourceReferences,
+        projects: state.projects,
+        reviewReports: state.reviewReports,
+        knowledgeItems: state.knowledgeItems
+      },
+      format
+    );
+  }
+
+  async startTaskRun(input: CreateTaskRunInput): Promise<PersistedContentLoopState> {
+    const taskRun = createTaskRun(input);
+
+    this.upsertTaskRun(taskRun);
+
+    return this.loadState();
+  }
+
+  async advanceTaskRun(taskRunId: string, input: AdvanceTaskRunInput): Promise<PersistedContentLoopState> {
+    const row = this.database.prepare("SELECT * FROM task_runs WHERE id = ?;").get(taskRunId) as TaskRunRow | undefined;
+
+    if (!row) {
+      return this.loadState();
+    }
+
+    this.upsertTaskRun(advanceTaskRun(mapTaskRunRow(row), input));
+
+    return this.loadState();
   }
 
   async generatePlatformPackage(projectId: string, platform: Platform): Promise<PersistedContentLoopState> {
@@ -571,6 +726,9 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     const knowledgeItems = this.database
       .prepare("SELECT * FROM knowledge_items ORDER BY updated_at DESC, created_at DESC, id ASC;")
       .all() as unknown as KnowledgeItemRow[];
+    const taskRuns = this.database
+      .prepare("SELECT * FROM task_runs ORDER BY updated_at DESC, created_at DESC, id ASC;")
+      .all() as unknown as TaskRunRow[];
     const selectedProject = selectedProjectId
       ? { id: selectedProjectId }
       : (this.database
@@ -589,6 +747,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       reviewReports: reviewReports.map(mapReviewReportRow),
       archiveRecords: archiveRecords.map(mapArchiveRecordRow),
       knowledgeItems: knowledgeItems.map(mapKnowledgeItemRow),
+      taskRuns: taskRuns.map(mapTaskRunRow),
       selectedProjectId: selectedProject?.id ?? null
     };
   }
@@ -712,6 +871,10 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
            SELECT updated_at FROM archive_records
            UNION ALL
            SELECT updated_at FROM knowledge_items
+           UNION ALL
+           SELECT updated_at FROM source_references
+           UNION ALL
+           SELECT updated_at FROM task_runs
          );`
       )
       .get() as { updated_at: string | null };
@@ -783,27 +946,45 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     this.database
       .prepare(
         `INSERT INTO source_references (
-          id, workspace_id, topic_id, content_project_id, kind, title, url, note, created_at, updated_at
+          id, workspace_id, column_slug, topic_id, content_project_id, kind, title, url,
+          platform, author, published_at, extraction_status, usage_status, excerpt,
+          tags_json, note, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           workspace_id = excluded.workspace_id,
+          column_slug = excluded.column_slug,
           topic_id = excluded.topic_id,
           content_project_id = excluded.content_project_id,
           kind = excluded.kind,
           title = excluded.title,
           url = excluded.url,
+          platform = excluded.platform,
+          author = excluded.author,
+          published_at = excluded.published_at,
+          extraction_status = excluded.extraction_status,
+          usage_status = excluded.usage_status,
+          excerpt = excluded.excerpt,
+          tags_json = excluded.tags_json,
           note = excluded.note,
           updated_at = excluded.updated_at;`
       )
       .run(
         sourceReference.id,
         sourceReference.workspaceId,
+        sourceReference.columnSlug ?? null,
         sourceReference.topicId ?? null,
         sourceReference.contentProjectId ?? null,
         sourceReference.kind,
         sourceReference.title,
         sourceReference.url ?? null,
+        sourceReference.platform ?? null,
+        sourceReference.author ?? null,
+        sourceReference.publishedAt ?? null,
+        sourceReference.extractionStatus ?? "manual",
+        sourceReference.usageStatus ?? "unused",
+        sourceReference.excerpt ?? "",
+        JSON.stringify(sourceReference.tags ?? []),
         sourceReference.note,
         sourceReference.createdAt,
         sourceReference.updatedAt
@@ -814,18 +995,28 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
     this.database
       .prepare(
         `INSERT OR IGNORE INTO source_references (
-          id, workspace_id, topic_id, content_project_id, kind, title, url, note, created_at, updated_at
+          id, workspace_id, column_slug, topic_id, content_project_id, kind, title, url,
+          platform, author, published_at, extraction_status, usage_status, excerpt,
+          tags_json, note, created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
       )
       .run(
         sourceReference.id,
         sourceReference.workspaceId,
+        sourceReference.columnSlug ?? null,
         sourceReference.topicId ?? null,
         sourceReference.contentProjectId ?? null,
         sourceReference.kind,
         sourceReference.title,
         sourceReference.url ?? null,
+        sourceReference.platform ?? null,
+        sourceReference.author ?? null,
+        sourceReference.publishedAt ?? null,
+        sourceReference.extractionStatus ?? "manual",
+        sourceReference.usageStatus ?? "unused",
+        sourceReference.excerpt ?? "",
+        JSON.stringify(sourceReference.tags ?? []),
         sourceReference.note,
         sourceReference.createdAt,
         sourceReference.updatedAt
@@ -1098,6 +1289,40 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
         knowledgeItem.updatedAt
       );
   }
+
+  private upsertTaskRun(taskRun: TaskRun): void {
+    this.database
+      .prepare(
+        `INSERT INTO task_runs (
+          id, workspace_id, kind, label, phase, status, completed_count,
+          total_count, message, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          workspace_id = excluded.workspace_id,
+          kind = excluded.kind,
+          label = excluded.label,
+          phase = excluded.phase,
+          status = excluded.status,
+          completed_count = excluded.completed_count,
+          total_count = excluded.total_count,
+          message = excluded.message,
+          updated_at = excluded.updated_at;`
+      )
+      .run(
+        taskRun.id,
+        taskRun.workspaceId,
+        taskRun.kind,
+        taskRun.label,
+        taskRun.phase,
+        taskRun.status,
+        taskRun.completedCount,
+        taskRun.totalCount,
+        taskRun.message,
+        taskRun.createdAt,
+        taskRun.updatedAt
+      );
+  }
 }
 
 function mapTopicRow(row: TopicRow): Topic {
@@ -1120,12 +1345,36 @@ function mapSourceReferenceRow(row: SourceReferenceRow): SourceReference {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
+    ...(row.column_slug ? { columnSlug: row.column_slug as ContentColumnSlug } : {}),
     ...(row.topic_id ? { topicId: row.topic_id } : {}),
     ...(row.content_project_id ? { contentProjectId: row.content_project_id } : {}),
     kind: row.kind as SourceReferenceKind,
     title: row.title,
     ...(row.url ? { url: row.url } : {}),
+    ...(row.platform ? { platform: row.platform as Platform } : {}),
+    ...(row.author ? { author: row.author } : {}),
+    ...(row.published_at ? { publishedAt: row.published_at } : {}),
+    extractionStatus: row.extraction_status as SourceExtractionStatus,
+    usageStatus: row.usage_status as SourceUsageStatus,
+    ...(row.excerpt ? { excerpt: row.excerpt } : {}),
+    tags: JSON.parse(row.tags_json) as string[],
     note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mapTaskRunRow(row: TaskRunRow): TaskRun {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    kind: row.kind as TaskRunKind,
+    label: row.label,
+    phase: row.phase as TaskRunPhase,
+    status: row.status as TaskRunStatus,
+    completedCount: row.completed_count,
+    totalCount: row.total_count,
+    message: row.message,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

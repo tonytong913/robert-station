@@ -5,14 +5,19 @@ import type { ContentLoopRepository, PersistedContentLoopState } from "@robert-s
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerContentLoopIpc } from "../main/content-loop-service";
 import {
+  CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL,
+  CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL,
   CONTENT_LOOP_ARCHIVE_PROJECT_CHANNEL,
+  CONTENT_LOOP_CREATE_EXPORT_CHANNEL,
   CONTENT_LOOP_EXTRACT_REVIEW_KNOWLEDGE_CHANNEL,
+  CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL,
   CONTENT_LOOP_GENERATE_REVIEW_REPORT_CHANNEL,
   CONTENT_LOOP_GENERATE_PLATFORM_PACKAGE_CHANNEL,
   CONTENT_LOOP_GENERATE_TOPICS_CHANNEL,
   CONTENT_LOOP_IMPORT_METRIC_CSV_CHANNEL,
   CONTENT_LOOP_RECORD_MANUAL_PUBLISH_CHANNEL,
-  CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL
+  CONTENT_LOOP_SAVE_METRIC_IMPORT_CHANNEL,
+  CONTENT_LOOP_START_TASK_RUN_CHANNEL
 } from "../main/ipc-channels";
 
 const fsPromisesMocks = vi.hoisted(() => ({
@@ -47,6 +52,7 @@ const emptyState: PersistedContentLoopState = {
   metricImportPreview: null,
   reviewReports: [],
   knowledgeItems: [],
+  taskRuns: [],
   selectedProjectId: null
 };
 
@@ -209,6 +215,89 @@ describe("registerContentLoopIpc", () => {
     await expect(handler({} as IpcMainInvokeEvent)).rejects.toThrow("Could not import metrics CSV.");
     expect(repository.previewMetricCsvImport).not.toHaveBeenCalled();
   });
+
+  it("rejects invalid source reference input before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getAddSourceReferenceHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, { workspaceId: "", title: "" })).rejects.toThrow(
+      "Invalid source reference input."
+    );
+    expect(repository.addSourceReference).not.toHaveBeenCalled();
+  });
+
+  it("adds source references through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+    const input = {
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter"
+    };
+
+    const handler = getAddSourceReferenceHandler();
+    await handler({} as IpcMainInvokeEvent, input);
+
+    expect(repository.addSourceReference).toHaveBeenCalledWith(input);
+  });
+
+  it("rejects unsupported export formats before calling the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getCreateExportHandler();
+
+    await expect(handler({} as IpcMainInvokeEvent, "pdf")).rejects.toThrow("Unsupported export format.");
+    expect(repository.createContentLoopExport).not.toHaveBeenCalled();
+  });
+
+  it("creates content loop exports through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getCreateExportHandler();
+    await handler({} as IpcMainInvokeEvent, "markdown");
+
+    expect(repository.createContentLoopExport).toHaveBeenCalledWith("markdown");
+  });
+
+  it("filters source references through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const handler = getFilterSourceReferencesHandler();
+    await handler({} as IpcMainInvokeEvent, { columnSlug: "ai", query: "资料库" });
+
+    expect(repository.filterSourceReferences).toHaveBeenCalledWith({ columnSlug: "ai", query: "资料库" });
+  });
+
+  it("starts and advances task runs through the repository", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+
+    const startHandler = getStartTaskRunHandler();
+    await startHandler({} as IpcMainInvokeEvent, {
+      workspaceId: "workspace_robert-station",
+      kind: "export",
+      label: "导出资料库",
+      totalCount: 1
+    });
+
+    const advanceHandler = getAdvanceTaskRunHandler();
+    await advanceHandler({} as IpcMainInvokeEvent, "task_export-robert-station-export", {
+      phase: "writing",
+      completedCount: 1
+    });
+
+    expect(repository.startTaskRun).toHaveBeenCalledOnce();
+    expect(repository.advanceTaskRun).toHaveBeenCalledWith("task_export-robert-station-export", {
+      phase: "writing",
+      completedCount: 1
+    });
+  });
 });
 
 function createRepository(): ContentLoopRepository {
@@ -223,7 +312,17 @@ function createRepository(): ContentLoopRepository {
     saveMetricImport: vi.fn(async () => emptyState),
     generateReviewReport: vi.fn(async () => emptyState),
     extractReviewKnowledge: vi.fn(async () => emptyState),
-    promoteTopic: vi.fn(async () => emptyState)
+    promoteTopic: vi.fn(async () => emptyState),
+    addSourceReference: vi.fn(async () => emptyState),
+    filterSourceReferences: vi.fn(async () => emptyState),
+    markSourceReferenceUsed: vi.fn(async () => emptyState),
+    createContentLoopExport: vi.fn(async () => ({
+      fileName: "robert-station-export.md",
+      mimeType: "text/markdown;charset=utf-8",
+      content: "# Export\n"
+    })),
+    startTaskRun: vi.fn(async () => emptyState),
+    advanceTaskRun: vi.fn(async () => emptyState)
   };
 }
 
@@ -331,4 +430,68 @@ function getExtractReviewKnowledgeHandler(): (
   }
 
   return handleCall[1] as (event: IpcMainInvokeEvent, reviewReportId: unknown) => Promise<unknown>;
+}
+
+function getAddSourceReferenceHandler(): (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_ADD_SOURCE_REFERENCE_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Add source reference IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>;
+}
+
+function getCreateExportHandler(): (event: IpcMainInvokeEvent, format: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_CREATE_EXPORT_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Create export IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, format: unknown) => Promise<unknown>;
+}
+
+function getFilterSourceReferencesHandler(): (event: IpcMainInvokeEvent, filter: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_FILTER_SOURCE_REFERENCES_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Filter source references IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, filter: unknown) => Promise<unknown>;
+}
+
+function getStartTaskRunHandler(): (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_START_TASK_RUN_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Start task run IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, input: unknown) => Promise<unknown>;
+}
+
+function getAdvanceTaskRunHandler(): (
+  event: IpcMainInvokeEvent,
+  taskRunId: unknown,
+  input: unknown
+) => Promise<unknown> {
+  const handleCall = vi
+    .mocked(ipcMain.handle)
+    .mock.calls.find(([channel]) => channel === CONTENT_LOOP_ADVANCE_TASK_RUN_CHANNEL);
+
+  if (!handleCall) {
+    throw new Error("Advance task run IPC handler was not registered.");
+  }
+
+  return handleCall[1] as (event: IpcMainInvokeEvent, taskRunId: unknown, input: unknown) => Promise<unknown>;
 }

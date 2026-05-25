@@ -51,6 +51,143 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterRepeat.sourceReferences).toHaveLength(6);
   });
 
+  it("uses a configured runtime for in-memory topic generation", async () => {
+    const runtime = {
+      generateTopics: vi.fn(async () => ({
+        candidates: [
+          {
+            title: "Runtime topic",
+            hook: "Runtime hook",
+            audience: "Runtime audience",
+            targetPlatforms: ["xiaohongshu" as const],
+            score: { heat: 91, fit: 92, difficulty: 30, personaConsistency: 89 },
+            sourceNotes: ["Runtime source note"],
+            riskNotes: ["Runtime risk note"],
+            verificationNotes: ["Runtime verification note"]
+          }
+        ]
+      })),
+      generateDraft: vi.fn()
+    };
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station", { agentRuntime: runtime });
+
+    const state = await repository.generateTopics("ai");
+
+    expect(runtime.generateTopics).toHaveBeenCalledWith({
+      columnSlug: "ai",
+      workspaceId: "workspace_robert-station",
+      now: expect.any(Date)
+    });
+    expect(state.topics.some((topic) => topic.title === "Runtime topic")).toBe(true);
+    expect(state.sourceReferences.some((source) => source.note.includes("Runtime source note"))).toBe(true);
+  });
+
+  it("falls back to mock in-memory topics when runtime topic generation fails", async () => {
+    const runtime = {
+      generateTopics: vi.fn(async () => {
+        throw new Error("runtime offline");
+      }),
+      generateDraft: vi.fn()
+    };
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station", { agentRuntime: runtime });
+
+    const state = await repository.generateTopics("ai");
+
+    expect(runtime.generateTopics).toHaveBeenCalledOnce();
+    expect(state.topics.some((topic) => topic.id === "topic_ai_mock-workflow-automations")).toBe(true);
+  });
+
+  it("adds and filters source library references in memory", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter",
+      platform: "wechat_channels",
+      author: "wechat-article",
+      excerpt: "支持 HTML、Markdown、Excel 等格式导出。",
+      tags: ["采集", "导出"]
+    });
+
+    const afterFilter = await repository.filterSourceReferences({
+      columnSlug: "ai",
+      platform: "wechat_channels",
+      tag: "采集",
+      query: "Markdown"
+    });
+
+    expect(afterFilter.sourceReferences.map((source) => source.title)).toEqual(["微信公众号文章导出器"]);
+  });
+
+  it("marks source references as used when attached to a project in memory", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+    const afterAdd = await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "AI 工作流文章",
+      url: "https://example.com/ai-workflow"
+    });
+    const sourceId = afterAdd.sourceReferences.find((source) => source.title === "AI 工作流文章")?.id;
+
+    if (!sourceId) {
+      throw new Error("Expected a source reference to be added.");
+    }
+
+    const afterUse = await repository.markSourceReferenceUsed(sourceId, "project_ai_workflow");
+
+    expect(afterUse.sourceReferences.find((source) => source.id === sourceId)).toMatchObject({
+      contentProjectId: "project_ai_workflow",
+      usageStatus: "used"
+    });
+  });
+
+  it("creates export files from in-memory state", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter"
+    });
+    const exported = await repository.createContentLoopExport("markdown");
+
+    expect(exported.fileName).toBe("robert-station-export.md");
+    expect(exported.content).toContain("微信公众号文章导出器");
+  });
+
+  it("records task progress in memory", async () => {
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
+
+    const afterStart = await repository.startTaskRun({
+      workspaceId: "workspace_robert-station",
+      kind: "export",
+      label: "导出资料库",
+      totalCount: 2
+    });
+    const taskId = afterStart.taskRuns[0]?.id;
+
+    if (!taskId) {
+      throw new Error("Expected a task run to be recorded.");
+    }
+
+    const afterAdvance = await repository.advanceTaskRun(taskId, {
+      phase: "writing",
+      completedCount: 1,
+      message: "写入 Markdown"
+    });
+
+    expect(afterAdvance.taskRuns[0]).toMatchObject({
+      id: taskId,
+      phase: "writing",
+      status: "running",
+      completedCount: 1,
+      message: "写入 Markdown"
+    });
+  });
+
   it("generates the next draft package in memory for a promoted project", async () => {
     const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station");
     const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
@@ -66,6 +203,37 @@ describe("InMemoryContentLoopRepository", () => {
     expect(afterGenerate.drafts[0]?.version).toBe(2);
     expect(afterGenerate.drafts[0]?.body).toContain("标题选项");
     expect(afterGenerate.selectedProjectId).toBe(projectId);
+  });
+
+  it("uses a configured runtime for in-memory draft generation", async () => {
+    const runtime = {
+      generateTopics: vi.fn(),
+      generateDraft: vi.fn(async () => ({
+        package: {
+          brief: "Runtime brief",
+          titleOptions: ["Runtime title", "Runtime title 2"],
+          bodyDraft: "Runtime body",
+          coverCopy: "Runtime cover",
+          tags: ["#runtime"],
+          visualDirection: "Runtime visual direction",
+          pendingVerification: ["Runtime verification"]
+        }
+      }))
+    };
+    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station", { agentRuntime: runtime });
+    const afterPromote = await repository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    const state = await repository.generateDraftPackage(projectId);
+
+    expect(runtime.generateDraft).toHaveBeenCalledOnce();
+    expect(state.drafts[0]?.body).toContain("Runtime brief");
+    expect(state.drafts[0]?.body).toContain("Runtime body");
+    expect(state.drafts[0]?.body).toContain("Runtime verification");
   });
 
   it("generates a Xiaohongshu platform package in memory for the latest draft", async () => {

@@ -1,4 +1,14 @@
-import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
+import type {
+  AdvanceTaskRunInput,
+  ContentColumnSlug,
+  ContentLoopExportFile,
+  ContentLoopExportFormat,
+  CreateTaskRunInput,
+  ManualPublishInput,
+  ManualSourceReferenceInput,
+  Platform,
+  SourceReferenceFilter
+} from "@robert-station/core";
 import type { PersistedContentLoopState } from "@robert-station/local-store";
 
 declare global {
@@ -17,6 +27,11 @@ declare global {
         generateReviewReport: (publishRecordId: string) => Promise<PersistedContentLoopState>;
         extractReviewKnowledge: (reviewReportId: string) => Promise<PersistedContentLoopState>;
         promoteTopic: (topicId: string) => Promise<PersistedContentLoopState>;
+        addSourceReference: (input: ManualSourceReferenceInput) => Promise<PersistedContentLoopState>;
+        filterSourceReferences: (filter: SourceReferenceFilter) => Promise<PersistedContentLoopState>;
+        createContentLoopExport: (format: ContentLoopExportFormat) => Promise<ContentLoopExportFile>;
+        startTaskRun: (input: CreateTaskRunInput) => Promise<PersistedContentLoopState>;
+        advanceTaskRun: (taskRunId: string, input: AdvanceTaskRunInput) => Promise<PersistedContentLoopState>;
       };
     };
   }

@@ -166,6 +166,31 @@ describe("useContentLoopStore", () => {
     expect(useContentLoopStore.getState().activeProjectCount).toBe(0)
   })
 
+  it("adds source references and keeps the source library in state", async () => {
+    await useContentLoopStore.getState().load()
+
+    await useContentLoopStore.getState().addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter"
+    })
+
+    expect(window.robertStation.contentLoop.addSourceReference).toHaveBeenCalledOnce()
+    expect(useContentLoopStore.getState().contentLoop?.sourceReferences.some((source) => source.title === "微信公众号文章导出器")).toBe(
+      true
+    )
+  })
+
+  it("creates exports and stores the last export file metadata", async () => {
+    await useContentLoopStore.getState().load()
+
+    await useContentLoopStore.getState().createContentLoopExport("markdown")
+
+    expect(window.robertStation.contentLoop.createContentLoopExport).toHaveBeenCalledWith("markdown")
+    expect(useContentLoopStore.getState().lastExportFile?.fileName).toBe("robert-station-export.md")
+  })
+
   it("does not report extraction success just because old project review knowledge exists", async () => {
     await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
     await useContentLoopStore.getState().archiveProject("project_topic-ai-local-workstation")
@@ -224,6 +249,8 @@ describe("useContentLoopStore", () => {
     expect(state.metricSaveError).toBeNull()
     expect(state.reviewReportError).toBeNull()
     expect(state.reviewKnowledgeError).toBeNull()
+    expect(state.sourceLibraryError).toBeNull()
+    expect(state.exportError).toBeNull()
     expect("topicGenerationErrorKey" in state).toBe(false)
     expect("draftGenerationErrorKey" in state).toBe(false)
     expect("platformGenerationErrorKey" in state).toBe(false)

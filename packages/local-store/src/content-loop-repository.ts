@@ -1,9 +1,23 @@
 import {
+  isAgentDraftPackage,
+  isGenerateTopicsOutput,
+  type ContentAgentRuntime,
+  type GenerateDraftInput,
+  type GenerateDraftOutput,
+  type GenerateTopicsOutput
+} from "@robert-station/agent-runtime";
+import {
+  advanceTaskRun,
   createContentProjectFromTopic,
+  createContentLoopExport,
+  createEntityId,
   createManualPublishRecord,
+  createManualSourceReference,
   createMetricImportPreview,
   createMetricSnapshotsFromPreview,
   createSampleContentLoopSeed,
+  createTaskRun,
+  filterSourceReferences,
   generateMockArchivePackage,
   generateMockDraftPackage,
   generateMockReviewKnowledgeItem,
@@ -13,10 +27,16 @@ import {
 } from "@robert-station/core";
 import type {
   ArchiveRecord,
+  AdvanceTaskRunInput,
   ContentColumnSlug,
+  ContentLoopSeed,
+  ContentLoopExportFile,
+  ContentLoopExportFormat,
   ContentProject,
+  CreateTaskRunInput,
   DraftVersion,
   KnowledgeItem,
+  ManualSourceReferenceInput,
   ManualPublishInput,
   MetricCsvImportInput,
   MetricImportPreview,
@@ -26,6 +46,8 @@ import type {
   PublishRecord,
   ReviewReport,
   SourceReference,
+  SourceReferenceFilter,
+  TaskRun,
   Topic
 } from "@robert-station/core";
 
@@ -41,6 +63,7 @@ export interface PersistedContentLoopState {
   reviewReports: ReviewReport[];
   archiveRecords: ArchiveRecord[];
   knowledgeItems: KnowledgeItem[];
+  taskRuns: TaskRun[];
   selectedProjectId: string | null;
 }
 
@@ -56,16 +79,32 @@ export interface ContentLoopRepository {
   extractReviewKnowledge(reviewReportId: string): Promise<PersistedContentLoopState>;
   archiveProject(projectId: string): Promise<PersistedContentLoopState>;
   promoteTopic(topicId: string): Promise<PersistedContentLoopState>;
+  addSourceReference(input: ManualSourceReferenceInput): Promise<PersistedContentLoopState>;
+  filterSourceReferences(filter: SourceReferenceFilter): Promise<PersistedContentLoopState>;
+  markSourceReferenceUsed(sourceReferenceId: string, contentProjectId: string): Promise<PersistedContentLoopState>;
+  createContentLoopExport(format: ContentLoopExportFormat): Promise<ContentLoopExportFile>;
+  startTaskRun(input: CreateTaskRunInput): Promise<PersistedContentLoopState>;
+  advanceTaskRun(taskRunId: string, input: AdvanceTaskRunInput): Promise<PersistedContentLoopState>;
+}
+
+export interface ContentLoopRepositoryOptions {
+  agentRuntime?: ContentAgentRuntime;
 }
 
 export class InMemoryContentLoopRepository implements ContentLoopRepository {
   private state: PersistedContentLoopState;
 
-  private constructor(initialState: PersistedContentLoopState) {
+  private constructor(
+    initialState: PersistedContentLoopState,
+    private readonly options: ContentLoopRepositoryOptions = {}
+  ) {
     this.state = cloneState(initialState);
   }
 
-  static createSeeded(workspaceId: string): InMemoryContentLoopRepository {
+  static createSeeded(
+    workspaceId: string,
+    options: ContentLoopRepositoryOptions = {}
+  ): InMemoryContentLoopRepository {
     const seed = createSampleContentLoopSeed(workspaceId);
 
     return new InMemoryContentLoopRepository({
@@ -80,8 +119,9 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       reviewReports: [],
       archiveRecords: [],
       knowledgeItems: [],
+      taskRuns: [],
       selectedProjectId: null
-    });
+    }, options);
   }
 
   async loadContentLoop(): Promise<PersistedContentLoopState> {
@@ -89,11 +129,18 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
   }
 
   async generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
-    const generated = generateMockTopics({
-      columnSlug,
-      workspaceId: this.state.topics[0]?.workspaceId ?? "workspace_robert-station",
-      now: new Date()
-    });
+    const workspaceId = this.state.topics[0]?.workspaceId ?? "workspace_robert-station";
+    const now = new Date();
+    let generated: ContentLoopSeed;
+
+    try {
+      const runtimeOutput = await this.options.agentRuntime?.generateTopics({ columnSlug, workspaceId, now });
+      generated = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
+        ? createTopicsFromAgentOutput({ columnSlug, workspaceId, now, output: runtimeOutput })
+        : generateMockTopics({ columnSlug, workspaceId, now });
+    } catch {
+      generated = generateMockTopics({ columnSlug, workspaceId, now });
+    }
     const existingTopicIds = new Set(this.state.topics.map((topic) => topic.id));
     const existingSourceIds = new Set(this.state.sourceReferences.map((source) => source.id));
 
@@ -127,18 +174,98 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
         0,
         ...this.state.drafts.filter((draft) => draft.contentProjectId === project.id).map((draft) => draft.version)
       ) + 1;
-    const draft = generateMockDraftPackage({
+    const now = new Date();
+    const draftInput: GenerateDraftInput = {
       project,
       topic,
       sourceReferences,
       nextVersion,
-      now: new Date()
-    });
+      now
+    };
+    let draft: DraftVersion;
+
+    try {
+      const runtimeOutput = await this.options.agentRuntime?.generateDraft(draftInput);
+      draft = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
+        ? createDraftFromAgentOutput(draftInput, runtimeOutput)
+        : generateMockDraftPackage(draftInput);
+    } catch {
+      draft = generateMockDraftPackage(draftInput);
+    }
 
     this.state = {
       ...this.state,
       drafts: [draft, ...this.state.drafts],
       selectedProjectId: project.id
+    };
+
+    return cloneState(this.state);
+  }
+
+  async addSourceReference(input: ManualSourceReferenceInput): Promise<PersistedContentLoopState> {
+    const sourceReference = createManualSourceReference(input);
+
+    this.state = {
+      ...this.state,
+      sourceReferences: [
+        sourceReference,
+        ...this.state.sourceReferences.filter((source) => source.id !== sourceReference.id)
+      ]
+    };
+
+    return cloneState(this.state);
+  }
+
+  async filterSourceReferences(filter: SourceReferenceFilter): Promise<PersistedContentLoopState> {
+    return {
+      ...cloneState(this.state),
+      sourceReferences: filterSourceReferences(this.state.sourceReferences, filter)
+    };
+  }
+
+  async markSourceReferenceUsed(
+    sourceReferenceId: string,
+    contentProjectId: string
+  ): Promise<PersistedContentLoopState> {
+    this.state = {
+      ...this.state,
+      sourceReferences: this.state.sourceReferences.map((source) =>
+        source.id === sourceReferenceId ? { ...source, contentProjectId, usageStatus: "used", updatedAt: new Date().toISOString() } : source
+      )
+    };
+
+    return cloneState(this.state);
+  }
+
+  async createContentLoopExport(format: ContentLoopExportFormat): Promise<ContentLoopExportFile> {
+    return createContentLoopExport(
+      {
+        sources: this.state.sourceReferences,
+        projects: this.state.projects,
+        reviewReports: this.state.reviewReports,
+        knowledgeItems: this.state.knowledgeItems
+      },
+      format
+    );
+  }
+
+  async startTaskRun(input: CreateTaskRunInput): Promise<PersistedContentLoopState> {
+    const taskRun = createTaskRun(input);
+
+    this.state = {
+      ...this.state,
+      taskRuns: [taskRun, ...this.state.taskRuns.filter((candidate) => candidate.id !== taskRun.id)]
+    };
+
+    return cloneState(this.state);
+  }
+
+  async advanceTaskRun(taskRunId: string, input: AdvanceTaskRunInput): Promise<PersistedContentLoopState> {
+    this.state = {
+      ...this.state,
+      taskRuns: this.state.taskRuns.map((taskRun) =>
+        taskRun.id === taskRunId ? advanceTaskRun(taskRun, input) : taskRun
+      )
     };
 
     return cloneState(this.state);
@@ -430,6 +557,88 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
 
 function cloneState(state: PersistedContentLoopState): PersistedContentLoopState {
   return structuredClone(state);
+}
+
+export function createTopicsFromAgentOutput(input: {
+  columnSlug: ContentColumnSlug;
+  workspaceId: string;
+  now: Date;
+  output: GenerateTopicsOutput;
+}): ContentLoopSeed {
+  const timestamp = input.now.toISOString();
+  const topics = input.output.candidates.map((candidate, index) => ({
+    id: createEntityId("topic", `${input.columnSlug}-runtime-${index + 1}-${candidate.title}`),
+    workspaceId: input.workspaceId,
+    columnSlug: input.columnSlug,
+    title: candidate.title,
+    hook: candidate.hook,
+    audience: candidate.audience,
+    targetPlatforms: [...candidate.targetPlatforms],
+    status: "candidate" as const,
+    score: { ...candidate.score },
+    createdAt: timestamp,
+    updatedAt: timestamp
+  }));
+  const sourceReferences = input.output.candidates.flatMap((candidate, index) => {
+    const topic = topics[index];
+
+    if (!topic) {
+      return [];
+    }
+
+    return [...candidate.sourceNotes, ...candidate.riskNotes, ...candidate.verificationNotes].map(
+      (note, noteIndex) => ({
+        id: createEntityId("source", `${topic.id}-${noteIndex + 1}`),
+        workspaceId: input.workspaceId,
+        topicId: topic.id,
+        kind: noteIndex < candidate.sourceNotes.length ? "note" as const : "risk" as const,
+        title: `${candidate.title} 的 runtime 资料`,
+        note,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      })
+    );
+  });
+
+  return { topics, sourceReferences };
+}
+
+export function createDraftFromAgentOutput(input: GenerateDraftInput, output: GenerateDraftOutput): DraftVersion {
+  const timestamp = (input.now ?? new Date()).toISOString();
+  const draftPackage = output.package;
+
+  return {
+    id: createEntityId("draft", `${input.project.id}-${input.nextVersion}`),
+    workspaceId: input.project.workspaceId,
+    contentProjectId: input.project.id,
+    version: input.nextVersion,
+    title: input.project.title,
+    body: [
+      "简报",
+      draftPackage.brief,
+      "",
+      "标题选项",
+      ...draftPackage.titleOptions.map((title, index) => `${index + 1}. ${title}`),
+      "",
+      "正文草稿",
+      draftPackage.bodyDraft,
+      "",
+      "封面文案",
+      draftPackage.coverCopy,
+      "",
+      "标签建议",
+      ...draftPackage.tags,
+      "",
+      "视觉方向",
+      draftPackage.visualDirection,
+      "",
+      "待核实",
+      ...draftPackage.pendingVerification.map((line, index) => `${index + 1}. ${line}`)
+    ].join("\n"),
+    createdBy: "assistant",
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
 }
 
 function comparePublishRecords(left: PublishRecord, right: PublishRecord): number {

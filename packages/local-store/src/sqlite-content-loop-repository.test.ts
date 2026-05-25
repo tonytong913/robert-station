@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createEntityId } from "@robert-station/core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SqliteContentLoopRepository } from "./sqlite-content-loop-repository";
 
 describe("SqliteContentLoopRepository", () => {
@@ -64,9 +64,106 @@ describe("SqliteContentLoopRepository", () => {
         "metric_snapshots",
         "review_reports",
         "archive_records",
-        "knowledge_items"
+        "knowledge_items",
+        "task_runs"
       ])
     );
+  });
+
+  it("persists source library metadata across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterAdd = await firstRepository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter",
+      platform: "wechat_channels",
+      author: "wechat-article",
+      excerpt: "支持 HTML、Markdown、Excel 等格式导出。",
+      tags: ["采集", "导出"]
+    });
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterAdd.sourceReferences.find((source) => source.title === "微信公众号文章导出器")).toMatchObject({
+      columnSlug: "ai",
+      platform: "wechat_channels",
+      author: "wechat-article",
+      usageStatus: "unused",
+      tags: ["采集", "导出"]
+    });
+    expect(afterReload).toEqual(afterAdd);
+  });
+
+  it("filters SQLite source references without mutating persisted state", async () => {
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+
+    await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "AI 工作流文章",
+      url: "https://example.com/ai-workflow",
+      platform: "wechat_channels",
+      excerpt: "资料库导入案例",
+      tags: ["导入"]
+    });
+    await repository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "finance",
+      title: "家庭财务看板",
+      url: "https://example.com/finance-dashboard",
+      platform: "xiaohongshu",
+      tags: ["复盘"]
+    });
+
+    const filtered = await repository.filterSourceReferences({
+      columnSlug: "ai",
+      platform: "wechat_channels",
+      tag: "导入",
+      query: "资料库"
+    });
+    const reloaded = await repository.loadContentLoop();
+    repository.close();
+
+    expect(filtered.sourceReferences.map((source) => source.title)).toEqual(["AI 工作流文章"]);
+    expect(reloaded.sourceReferences.some((source) => source.title === "家庭财务看板")).toBe(true);
+  });
+
+  it("persists task progress across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterStart = await firstRepository.startTaskRun({
+      workspaceId: "workspace_robert-station",
+      kind: "export",
+      label: "导出资料库",
+      totalCount: 2
+    });
+    const taskId = afterStart.taskRuns[0]?.id;
+
+    if (!taskId) {
+      throw new Error("Expected a task run to be persisted.");
+    }
+
+    const afterAdvance = await firstRepository.advanceTaskRun(taskId, {
+      phase: "writing",
+      completedCount: 1,
+      message: "写入 Markdown"
+    });
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterAdvance.taskRuns[0]).toMatchObject({
+      id: taskId,
+      phase: "writing",
+      status: "running",
+      completedCount: 1
+    });
+    expect(afterReload).toEqual(afterAdvance);
   });
 
   it("persists promoted topic across repository instances", async () => {
@@ -97,6 +194,57 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterReload).toEqual(afterGenerate);
   });
 
+  it("uses a configured runtime for SQLite topic generation", async () => {
+    const runtime = {
+      generateTopics: vi.fn(async () => ({
+        candidates: [
+          {
+            title: "SQLite runtime topic",
+            hook: "SQLite runtime hook",
+            audience: "SQLite runtime audience",
+            targetPlatforms: ["xiaohongshu" as const],
+            score: { heat: 91, fit: 92, difficulty: 30, personaConsistency: 89 },
+            sourceNotes: ["SQLite runtime source note"],
+            riskNotes: ["SQLite runtime risk note"],
+            verificationNotes: ["SQLite runtime verification note"]
+          }
+        ]
+      })),
+      generateDraft: vi.fn()
+    };
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath, agentRuntime: runtime });
+    const afterGenerate = await firstRepository.generateTopics("ai");
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(runtime.generateTopics).toHaveBeenCalledWith({
+      columnSlug: "ai",
+      workspaceId: "workspace_robert-station",
+      now: expect.any(Date)
+    });
+    expect(afterGenerate.topics.some((topic) => topic.title === "SQLite runtime topic")).toBe(true);
+    expect(afterGenerate.sourceReferences.some((source) => source.note.includes("SQLite runtime source note"))).toBe(true);
+    expect(afterReload).toEqual(afterGenerate);
+  });
+
+  it("falls back to mock SQLite topics when runtime topic generation fails", async () => {
+    const runtime = {
+      generateTopics: vi.fn(async () => {
+        throw new Error("runtime offline");
+      }),
+      generateDraft: vi.fn()
+    };
+    const repository = SqliteContentLoopRepository.open({ databasePath, agentRuntime: runtime });
+    const state = await repository.generateTopics("ai");
+    repository.close();
+
+    expect(runtime.generateTopics).toHaveBeenCalledOnce();
+    expect(state.topics.some((topic) => topic.id === "topic_ai_mock-workflow-automations")).toBe(true);
+  });
+
   it("persists generated draft packages across repository instances", async () => {
     const firstRepository = SqliteContentLoopRepository.open({ databasePath });
     const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
@@ -114,6 +262,43 @@ describe("SqliteContentLoopRepository", () => {
     secondRepository.close();
 
     expect(afterGenerate.drafts.filter((draft) => draft.contentProjectId === projectId)).toHaveLength(2);
+    expect(afterReload).toEqual(afterGenerate);
+  });
+
+  it("uses a configured runtime for SQLite draft generation", async () => {
+    const runtime = {
+      generateTopics: vi.fn(),
+      generateDraft: vi.fn(async () => ({
+        package: {
+          brief: "SQLite runtime brief",
+          titleOptions: ["SQLite runtime title", "SQLite runtime title 2"],
+          bodyDraft: "SQLite runtime body",
+          coverCopy: "SQLite runtime cover",
+          tags: ["#runtime"],
+          visualDirection: "SQLite runtime visual direction",
+          pendingVerification: ["SQLite runtime verification"]
+        }
+      }))
+    };
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath, agentRuntime: runtime });
+    const afterPromote = await firstRepository.promoteTopic("topic_ai_local-workstation");
+    const projectId = afterPromote.selectedProjectId;
+
+    if (!projectId) {
+      throw new Error("Expected promoted project to be selected.");
+    }
+
+    const afterGenerate = await firstRepository.generateDraftPackage(projectId);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(runtime.generateDraft).toHaveBeenCalledOnce();
+    expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime brief");
+    expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime body");
+    expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime verification");
     expect(afterReload).toEqual(afterGenerate);
   });
 

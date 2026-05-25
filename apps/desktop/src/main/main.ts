@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from "electron";
+import { createContentAgentRuntime } from "@robert-station/agent-runtime";
 import { SqliteContentLoopRepository } from "@robert-station/local-store";
 import path from "node:path";
 import { registerContentLoopIpc } from "./content-loop-service";
@@ -32,8 +33,13 @@ function createMainWindow(): void {
 async function startApp(): Promise<void> {
   await app.whenReady();
 
+  const agentRuntime = createContentAgentRuntime({
+    ...(process.env.ROBERT_STATION_AGENT_RUNTIME ? { runtime: process.env.ROBERT_STATION_AGENT_RUNTIME } : {}),
+    ...(process.env.OPENAI_API_KEY ? { providerApiKey: process.env.OPENAI_API_KEY } : {})
+  });
   const repository = SqliteContentLoopRepository.open({
-    databasePath: path.join(app.getPath("userData"), "robert-station.sqlite")
+    databasePath: path.join(app.getPath("userData"), "robert-station.sqlite"),
+    ...(agentRuntime ? { agentRuntime } : {})
   });
 
   registerContentLoopIpc(repository);

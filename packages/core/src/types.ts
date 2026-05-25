@@ -55,6 +55,10 @@ export type ContentProjectStatus = "topic" | "drafting" | "ready_to_publish" | "
 
 export type SourceReferenceKind = "link" | "note" | "claim" | "risk";
 
+export type SourceExtractionStatus = "manual" | "pending" | "extracted" | "failed";
+
+export type SourceUsageStatus = "unused" | "used";
+
 export interface TopicScore {
   heat: number;
   fit: number;
@@ -79,11 +83,19 @@ export interface Topic {
 export interface SourceReference {
   id: EntityId;
   workspaceId: EntityId;
+  columnSlug?: ContentColumnSlug;
   topicId?: EntityId;
   contentProjectId?: EntityId;
   kind: SourceReferenceKind;
   title: string;
   url?: string;
+  platform?: Platform;
+  author?: string;
+  publishedAt?: string;
+  extractionStatus?: SourceExtractionStatus;
+  usageStatus?: SourceUsageStatus;
+  excerpt?: string;
+  tags?: string[];
   note: string;
   createdAt: string;
   updatedAt: string;
@@ -242,6 +254,41 @@ export interface KnowledgeItem {
   lesson: string;
   evidence: string;
   tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ContentLoopExportFormat = "markdown" | "json" | "csv";
+
+export interface ContentLoopExportInput {
+  sources: SourceReference[];
+  projects: ContentProject[];
+  reviewReports: ReviewReport[];
+  knowledgeItems: KnowledgeItem[];
+}
+
+export interface ContentLoopExportFile {
+  fileName: string;
+  mimeType: string;
+  content: string;
+}
+
+export type TaskRunKind = "source_import" | "export" | "generation";
+
+export type TaskRunPhase = "queued" | "parsing" | "fetching" | "generating" | "writing" | "completed" | "failed";
+
+export type TaskRunStatus = "queued" | "running" | "completed" | "failed";
+
+export interface TaskRun {
+  id: EntityId;
+  workspaceId: EntityId;
+  kind: TaskRunKind;
+  label: string;
+  phase: TaskRunPhase;
+  status: TaskRunStatus;
+  completedCount: number;
+  totalCount: number;
+  message: string;
   createdAt: string;
   updatedAt: string;
 }

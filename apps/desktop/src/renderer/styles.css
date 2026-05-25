@@ -512,6 +512,39 @@ button:disabled {
   outline: 3px solid rgba(255, 219, 208, 0.78);
 }
 
+.source-library-form {
+  display: grid;
+  gap: 12px;
+}
+
+.source-library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.source-library-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.source-reference-row {
+  align-items: center;
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding-top: 10px;
+}
+
+.source-reference-row p {
+  color: var(--color-text-tertiary);
+  font-size: 0.84rem;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .inline-error {
   background: rgba(171, 43, 63, 0.08);
   border: 1px solid rgba(171, 43, 63, 0.2);

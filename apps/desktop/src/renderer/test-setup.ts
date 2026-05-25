@@ -1,5 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import type { ContentColumnSlug, ManualPublishInput, Platform } from "@robert-station/core";
+import type {
+  AdvanceTaskRunInput,
+  ContentColumnSlug,
+  ContentLoopExportFormat,
+  CreateTaskRunInput,
+  ManualPublishInput,
+  ManualSourceReferenceInput,
+  Platform,
+  SourceReferenceFilter
+} from "@robert-station/core";
 import { InMemoryContentLoopRepository } from "@robert-station/local-store";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
@@ -31,7 +40,16 @@ beforeEach(() => {
       saveMetricImport: vi.fn(async () => repository.saveMetricImport()),
       generateReviewReport: vi.fn(async (publishRecordId: string) => repository.generateReviewReport(publishRecordId)),
       extractReviewKnowledge: vi.fn(async (reviewReportId: string) => repository.extractReviewKnowledge(reviewReportId)),
-      promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId))
+      promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId)),
+      addSourceReference: vi.fn(async (input: ManualSourceReferenceInput) => repository.addSourceReference(input)),
+      filterSourceReferences: vi.fn(async (filter: SourceReferenceFilter) => repository.filterSourceReferences(filter)),
+      createContentLoopExport: vi.fn(async (format: ContentLoopExportFormat) =>
+        repository.createContentLoopExport(format)
+      ),
+      startTaskRun: vi.fn(async (input: CreateTaskRunInput) => repository.startTaskRun(input)),
+      advanceTaskRun: vi.fn(async (taskRunId: string, input: AdvanceTaskRunInput) =>
+        repository.advanceTaskRun(taskRunId, input)
+      )
     }
   };
 });

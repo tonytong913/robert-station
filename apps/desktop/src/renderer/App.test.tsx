@@ -537,6 +537,31 @@ describe("App publish and review screens", () => {
   });
 });
 
+describe("App knowledge source library", () => {
+  it("adds a source reference and creates a markdown export", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "知识库" }));
+
+    fireEvent.change(screen.getByLabelText("标题"), {
+      target: { value: "微信公众号文章导出器" }
+    });
+    fireEvent.change(screen.getByLabelText("链接"), {
+      target: { value: "https://example.com/wechat-exporter" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加资料" }));
+
+    expect(await screen.findByRole("article", { name: "微信公众号文章导出器" })).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.addSourceReference).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: "导出 Markdown" }));
+
+    expect(await screen.findByText("最近导出：robert-station-export.md")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.createContentLoopExport).toHaveBeenCalledWith("markdown");
+  });
+});
+
 describe("App knowledge screen", () => {
   it("lists archived knowledge items in the Knowledge screen", async () => {
     render(<App />);

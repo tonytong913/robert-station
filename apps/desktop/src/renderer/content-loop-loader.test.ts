@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   archivePersistedProject,
   extractPersistedReviewKnowledge,
+  addPersistedSourceReference,
+  createPersistedContentLoopExport,
+  filterPersistedSourceReferences,
+  startPersistedTaskRun,
+  advancePersistedTaskRun,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedReviewReport,
@@ -91,5 +96,57 @@ describe("content loop loader", () => {
     await extractPersistedReviewKnowledge("review-report_demo");
 
     expect(window.robertStation.contentLoop.extractReviewKnowledge).toHaveBeenCalledWith("review-report_demo");
+  });
+
+  it("adds source references through preload API", async () => {
+    const input = {
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai" as const,
+      title: "微信公众号文章导出器",
+      url: "https://example.com/wechat-exporter"
+    };
+
+    await addPersistedSourceReference(input);
+
+    expect(window.robertStation.contentLoop.addSourceReference).toHaveBeenCalledWith(input);
+  });
+
+  it("creates content loop exports through preload API", async () => {
+    await createPersistedContentLoopExport("markdown");
+
+    expect(window.robertStation.contentLoop.createContentLoopExport).toHaveBeenCalledWith("markdown");
+  });
+
+  it("filters source references through preload API", async () => {
+    await filterPersistedSourceReferences({ columnSlug: "ai", query: "资料库" });
+
+    expect(window.robertStation.contentLoop.filterSourceReferences).toHaveBeenCalledWith({
+      columnSlug: "ai",
+      query: "资料库"
+    });
+  });
+
+  it("starts and advances task runs through preload API", async () => {
+    const input = {
+      workspaceId: "workspace_robert-station",
+      kind: "export" as const,
+      label: "导出资料库",
+      totalCount: 1
+    };
+
+    await startPersistedTaskRun(input);
+    await advancePersistedTaskRun("task_export-robert-station-export", {
+      phase: "writing",
+      completedCount: 1
+    });
+
+    expect(window.robertStation.contentLoop.startTaskRun).toHaveBeenCalledWith(input);
+    expect(window.robertStation.contentLoop.advanceTaskRun).toHaveBeenCalledWith(
+      "task_export-robert-station-export",
+      {
+        phase: "writing",
+        completedCount: 1
+      }
+    );
   });
 });
