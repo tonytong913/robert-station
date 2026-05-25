@@ -4,6 +4,7 @@ import {
   extractPersistedReviewKnowledge,
   addPersistedSourceReference,
   createPersistedContentLoopExport,
+  createPersistedTopicFromSourceReference,
   filterPersistedSourceReferences,
   startPersistedTaskRun,
   advancePersistedTaskRun,
@@ -124,6 +125,12 @@ describe("content loop loader", () => {
       columnSlug: "ai",
       query: "资料库"
     });
+  });
+
+  it("creates topics from source references through preload API", async () => {
+    await createPersistedTopicFromSourceReference("source_wechat-case");
+
+    expect(window.robertStation.contentLoop.createTopicFromSourceReference).toHaveBeenCalledWith("source_wechat-case");
   });
 
   it("starts and advances task runs through preload API", async () => {

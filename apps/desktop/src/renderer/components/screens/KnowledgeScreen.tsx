@@ -20,6 +20,7 @@ export function KnowledgeScreen(): ReactElement {
   const lastExportFile = useContentLoopStore((state) => state.lastExportFile)
   const addSourceReference = useContentLoopStore((state) => state.addSourceReference)
   const filterSourceReferences = useContentLoopStore((state) => state.filterSourceReferences)
+  const createTopicFromSourceReference = useContentLoopStore((state) => state.createTopicFromSourceReference)
   const createContentLoopExport = useContentLoopStore((state) => state.createContentLoopExport)
   const [sourceTitle, setSourceTitle] = useState("")
   const [sourceUrl, setSourceUrl] = useState("")
@@ -168,7 +169,11 @@ export function KnowledgeScreen(): ReactElement {
         </div>
         <div className="source-library-list">
           {sourceReferences.map((source) => (
-            <SourceReferenceRow key={source.id} source={source} />
+            <SourceReferenceRow
+              key={source.id}
+              onCreateTopic={() => void createTopicFromSourceReference(source.id)}
+              source={source}
+            />
           ))}
         </div>
       </Panel>
@@ -185,7 +190,13 @@ export function KnowledgeScreen(): ReactElement {
   )
 }
 
-function SourceReferenceRow({ source }: { source: SourceReference }): ReactElement {
+function SourceReferenceRow({
+  onCreateTopic,
+  source
+}: {
+  onCreateTopic: () => void
+  source: SourceReference
+}): ReactElement {
   return (
     <article className="source-reference-row" aria-label={source.title}>
       <div>
@@ -201,6 +212,9 @@ function SourceReferenceRow({ source }: { source: SourceReference }): ReactEleme
           <StatusBadge key={tag}>{tag}</StatusBadge>
         ))}
         <StatusBadge>{source.usageStatus ?? "unused"}</StatusBadge>
+        <Button onClick={onCreateTopic} type="button" variant="secondary">
+          {useTranslation()("knowledge.createTopic")}
+        </Button>
       </div>
     </article>
   )

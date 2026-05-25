@@ -132,6 +132,40 @@ describe("SqliteContentLoopRepository", () => {
     expect(reloaded.sourceReferences.some((source) => source.title === "家庭财务看板")).toBe(true);
   });
 
+  it("persists topics created from source references across repository instances", async () => {
+    const firstRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterAdd = await firstRepository.addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "微信长文导出案例",
+      url: "https://example.com/wechat-case",
+      platform: "wechat_channels",
+      excerpt: "多格式导出和资源缓存值得参考。"
+    });
+    const sourceId = afterAdd.sourceReferences.find((source) => source.title === "微信长文导出案例")?.id;
+
+    if (!sourceId) {
+      throw new Error("Expected a source reference to be added.");
+    }
+
+    const afterCreate = await firstRepository.createTopicFromSourceReference(sourceId);
+    firstRepository.close();
+
+    const secondRepository = SqliteContentLoopRepository.open({ databasePath });
+    const afterReload = await secondRepository.loadContentLoop();
+    secondRepository.close();
+
+    expect(afterCreate.topics.find((topic) => topic.id === "topic_source-wechat-case")).toMatchObject({
+      title: "微信长文导出案例",
+      targetPlatforms: ["wechat_channels"]
+    });
+    expect(afterCreate.sourceReferences.find((source) => source.id === sourceId)).toMatchObject({
+      topicId: "topic_source-wechat-case",
+      usageStatus: "used"
+    });
+    expect(afterReload).toEqual(afterCreate);
+  });
+
   it("persists task progress across repository instances", async () => {
     const firstRepository = SqliteContentLoopRepository.open({ databasePath });
     const afterStart = await firstRepository.startTaskRun({

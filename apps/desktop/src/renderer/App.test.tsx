@@ -635,6 +635,34 @@ describe("App knowledge source library", () => {
     });
     expect(screen.getByRole("article", { name: "微信长文导出案例" })).toBeInTheDocument();
   });
+
+  it("creates a topic from a source reference", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "知识库" }));
+
+    fireEvent.change(screen.getByLabelText("标题"), {
+      target: { value: "微信长文导出案例" }
+    });
+    fireEvent.change(screen.getByLabelText("链接"), {
+      target: { value: "https://example.com/wechat-case" }
+    });
+    fireEvent.change(screen.getByLabelText("平台"), {
+      target: { value: "wechat_channels" }
+    });
+    fireEvent.change(screen.getByLabelText("摘要"), {
+      target: { value: "多格式导出和资源缓存值得参考。" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加资料" }));
+
+    const source = await screen.findByRole("article", { name: "微信长文导出案例" });
+    fireEvent.click(within(source).getByRole("button", { name: "生成选题" }));
+
+    expect(await screen.findByRole("heading", { name: "选题" })).toBeInTheDocument();
+    expect(await screen.findByRole("article", { name: "微信长文导出案例" })).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.createTopicFromSourceReference).toHaveBeenCalledWith("source_wechat-case");
+  });
 });
 
 describe("App knowledge screen", () => {

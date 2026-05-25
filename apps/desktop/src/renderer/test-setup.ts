@@ -43,6 +43,9 @@ beforeEach(() => {
       promoteTopic: vi.fn(async (topicId: string) => repository.promoteTopic(topicId)),
       addSourceReference: vi.fn(async (input: ManualSourceReferenceInput) => repository.addSourceReference(input)),
       filterSourceReferences: vi.fn(async (filter: SourceReferenceFilter) => repository.filterSourceReferences(filter)),
+      createTopicFromSourceReference: vi.fn(async (sourceReferenceId: string) =>
+        repository.createTopicFromSourceReference(sourceReferenceId)
+      ),
       createContentLoopExport: vi.fn(async (format: ContentLoopExportFormat) =>
         repository.createContentLoopExport(format)
       ),
