@@ -61,6 +61,7 @@ import type {
   TopicStatus
 } from "@robert-station/core";
 import {
+  createCompletedGenerationTask,
   createDraftFromAgentOutput,
   createTopicsFromAgentOutput,
   type ContentLoopRepository,
@@ -276,6 +277,7 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
   async generateTopics(columnSlug: ContentColumnSlug): Promise<PersistedContentLoopState> {
     const now = this.createPromotionDate();
     let generated: ContentLoopSeed;
+    let diagnosticMessage: string;
 
     try {
       const runtimeOutput = await this.options.agentRuntime?.generateTopics({
@@ -286,9 +288,19 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       generated = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
         ? createTopicsFromAgentOutput({ columnSlug, workspaceId: WORKSPACE_ID, now, output: runtimeOutput })
         : generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now });
+      diagnosticMessage = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
+        ? "Agent runtime generated topics."
+        : "Fell back to mock topic generator.";
     } catch {
       generated = generateMockTopics({ columnSlug, workspaceId: WORKSPACE_ID, now });
+      diagnosticMessage = "Fell back to mock topic generator.";
     }
+    const diagnosticTask = createCompletedGenerationTask({
+      workspaceId: WORKSPACE_ID,
+      label: `Generate ${columnSlug} topics`,
+      message: diagnosticMessage,
+      now
+    });
 
     this.runTransaction(() => {
       for (const topic of generated.topics) {
@@ -298,6 +310,8 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       for (const sourceReference of generated.sourceReferences) {
         this.insertSourceReferenceIfMissing(sourceReference);
       }
+
+      this.upsertTaskRun(diagnosticTask);
     });
 
     return this.loadState();
@@ -320,18 +334,30 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       now: this.createPromotionDate()
     };
     let draft: DraftVersion;
+    let diagnosticMessage: string;
 
     try {
       const runtimeOutput = await this.options.agentRuntime?.generateDraft(draftInput);
       draft = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
         ? createDraftFromAgentOutput(draftInput, runtimeOutput)
         : generateMockDraftPackage(draftInput);
+      diagnosticMessage = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
+        ? "Agent runtime generated draft."
+        : "Fell back to mock draft generator.";
     } catch {
       draft = generateMockDraftPackage(draftInput);
+      diagnosticMessage = "Fell back to mock draft generator.";
     }
+    const diagnosticTask = createCompletedGenerationTask({
+      workspaceId: project.workspaceId,
+      label: `Generate draft for ${project.title}`,
+      message: diagnosticMessage,
+      now: draftInput.now ?? this.createPromotionDate()
+    });
 
     this.runTransaction(() => {
       this.upsertDraftVersion(draft);
+      this.upsertTaskRun(diagnosticTask);
     });
 
     return this.loadState(project.id);
