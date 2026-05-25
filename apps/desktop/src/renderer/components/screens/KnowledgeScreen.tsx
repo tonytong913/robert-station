@@ -19,11 +19,14 @@ export function KnowledgeScreen(): ReactElement {
   const exportError = useContentLoopStore((state) => state.exportError)
   const lastExportFile = useContentLoopStore((state) => state.lastExportFile)
   const addSourceReference = useContentLoopStore((state) => state.addSourceReference)
+  const filterSourceReferences = useContentLoopStore((state) => state.filterSourceReferences)
   const createContentLoopExport = useContentLoopStore((state) => state.createContentLoopExport)
   const [sourceTitle, setSourceTitle] = useState("")
   const [sourceUrl, setSourceUrl] = useState("")
   const [sourceNote, setSourceNote] = useState("")
   const [sourceColumn, setSourceColumn] = useState<ContentColumnSlug>("ai")
+  const [sourceSearch, setSourceSearch] = useState("")
+  const [filterColumn, setFilterColumn] = useState<ContentColumnSlug | "all">("all")
   const t = useTranslation()
   const workspaceId = contentLoop?.topics[0]?.workspaceId ?? "workspace_robert-station"
 
@@ -92,6 +95,33 @@ export function KnowledgeScreen(): ReactElement {
         {sourceLibraryError ? <p className="inline-error" role="alert">{t(sourceLibraryError as TranslationKey)}</p> : null}
         {exportError ? <p className="inline-error" role="alert">{t(exportError as TranslationKey)}</p> : null}
         {lastExportFile ? <p>{t("knowledge.lastExport", { fileName: lastExportFile.fileName })}</p> : null}
+        <div className="source-library-filter">
+          <FieldGroup label={t("knowledge.sourceSearch")}>
+            <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.sourceColumn")}>
+            <select value={filterColumn} onChange={(event) => setFilterColumn(event.target.value as ContentColumnSlug | "all")}>
+              <option value="all">All</option>
+              <option value="ai">AI</option>
+              <option value="finance">Finance</option>
+              <option value="parenting">Parenting</option>
+              <option value="fitness">Fitness</option>
+            </select>
+          </FieldGroup>
+          <Button
+            disabled={isAddingSourceReference}
+            onClick={() =>
+              void filterSourceReferences({
+                ...(filterColumn !== "all" ? { columnSlug: filterColumn } : {}),
+                ...(sourceSearch ? { query: sourceSearch } : {})
+              })
+            }
+            type="button"
+            variant="secondary"
+          >
+            {t("knowledge.filterSources")}
+          </Button>
+        </div>
         <div className="source-library-list">
           {sourceReferences.map((source) => (
             <SourceReferenceRow key={source.id} source={source} />

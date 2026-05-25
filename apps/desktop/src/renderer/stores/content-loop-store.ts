@@ -11,7 +11,8 @@ import type {
   MetricSnapshot,
   PlatformPackage,
   PublishRecord,
-  ReviewReport
+  ReviewReport,
+  SourceReferenceFilter
 } from "@robert-station/core"
 import { createEntityId } from "@robert-station/core"
 import type { PersistedContentLoopState } from "@robert-station/local-store"
@@ -21,6 +22,7 @@ import {
   archivePersistedProject,
   createPersistedContentLoopExport,
   extractPersistedReviewKnowledge,
+  filterPersistedSourceReferences,
   generatePersistedDraftPackage,
   generatePersistedPlatformPackage,
   generatePersistedReviewReport,
@@ -113,6 +115,7 @@ type ContentLoopStoreState = AsyncState &
     generateReviewReport: (publishRecordId: string) => Promise<void>
     extractReviewKnowledge: (reviewReportId: string) => Promise<void>
     addSourceReference: (input: ManualSourceReferenceInput) => Promise<void>
+    filterSourceReferences: (filter: SourceReferenceFilter) => Promise<void>
     createContentLoopExport: (format: ContentLoopExportFormat) => Promise<void>
     reset: () => void
   }
@@ -401,6 +404,16 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false }))
     } catch {
       set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.sourceAddFailed" })
+    }
+  },
+  filterSourceReferences: async (filter) => {
+    set({ isAddingSourceReference: true, sourceLibraryError: null })
+
+    try {
+      const contentLoop = await filterPersistedSourceReferences(filter)
+      set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false }))
+    } catch {
+      set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.sourceFilterFailed" })
     }
   },
   createContentLoopExport: async (format) => {

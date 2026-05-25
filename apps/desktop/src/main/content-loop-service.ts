@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { dialog, ipcMain } from "electron";
 import {
@@ -137,7 +137,38 @@ export function registerContentLoopIpc(repository: ContentLoopRepository): void 
       throw new Error("Unsupported export format.");
     }
 
-    return repository.createContentLoopExport(format);
+    await repository.startTaskRun({
+      workspaceId: "workspace_robert-station",
+      kind: "export",
+      label: `Export ${format}`,
+      totalCount: 1
+    });
+    const exportFile = await repository.createContentLoopExport(format);
+    const result = await dialog.showSaveDialog({
+      defaultPath: exportFile.fileName,
+      filters: [createExportFileFilter(format)]
+    });
+
+    if (result.canceled || !result.filePath) {
+      await repository.advanceTaskRun("task_export-robert-station-export", {
+        phase: "completed",
+        completedCount: 1,
+        message: `Prepared ${exportFile.fileName}`
+      });
+      return exportFile;
+    }
+
+    await writeFile(result.filePath, exportFile.content, "utf8");
+    await repository.advanceTaskRun("task_export-robert-station-export", {
+      phase: "completed",
+      completedCount: 1,
+      message: `Saved ${exportFile.fileName}`
+    });
+
+    return {
+      ...exportFile,
+      filePath: result.filePath
+    };
   });
   ipcMain.handle(CONTENT_LOOP_START_TASK_RUN_CHANNEL, async (_event, input: unknown) => {
     if (!isCreateTaskRunInput(input)) {
@@ -206,6 +237,18 @@ function isSupportedSourcePlatform(value: unknown): value is Platform {
 
 function isContentLoopExportFormat(value: unknown): value is ContentLoopExportFormat {
   return value === "markdown" || value === "json" || value === "csv";
+}
+
+function createExportFileFilter(format: ContentLoopExportFormat): Electron.FileFilter {
+  if (format === "markdown") {
+    return { name: "Markdown", extensions: ["md"] };
+  }
+
+  if (format === "json") {
+    return { name: "JSON", extensions: ["json"] };
+  }
+
+  return { name: "CSV", extensions: ["csv"] };
 }
 
 function isSourceReferenceFilter(value: unknown): value is Parameters<ContentLoopRepository["filterSourceReferences"]>[0] {

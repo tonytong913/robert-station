@@ -182,6 +182,32 @@ describe("useContentLoopStore", () => {
     )
   })
 
+  it("filters source references through persistence API", async () => {
+    await useContentLoopStore.getState().load()
+    await useContentLoopStore.getState().addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "ai",
+      title: "AI 资料库文章",
+      url: "https://example.com/ai-source"
+    })
+    await useContentLoopStore.getState().addSourceReference({
+      workspaceId: "workspace_robert-station",
+      columnSlug: "finance",
+      title: "家庭财务看板",
+      url: "https://example.com/finance-source"
+    })
+
+    await useContentLoopStore.getState().filterSourceReferences({ columnSlug: "ai", query: "资料库" })
+
+    expect(window.robertStation.contentLoop.filterSourceReferences).toHaveBeenCalledWith({
+      columnSlug: "ai",
+      query: "资料库"
+    })
+    expect(useContentLoopStore.getState().contentLoop?.sourceReferences.map((source) => source.title)).toEqual([
+      "AI 资料库文章"
+    ])
+  })
+
   it("creates exports and stores the last export file metadata", async () => {
     await useContentLoopStore.getState().load()
 

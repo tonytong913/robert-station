@@ -271,6 +271,7 @@ export interface ContentLoopExportFile {
   fileName: string;
   mimeType: string;
   content: string;
+  filePath?: string;
 }
 
 export type TaskRunKind = "source_import" | "export" | "generation";

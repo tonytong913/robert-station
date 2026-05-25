@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import type { IpcMainInvokeEvent } from "electron";
 import { dialog, ipcMain } from "electron";
 import type { ContentLoopRepository, PersistedContentLoopState } from "@robert-station/local-store";
@@ -21,12 +21,14 @@ import {
 } from "../main/ipc-channels";
 
 const fsPromisesMocks = vi.hoisted(() => ({
-  readFile: vi.fn()
+  readFile: vi.fn(),
+  writeFile: vi.fn()
 }));
 
 vi.mock("electron", () => ({
   dialog: {
-    showOpenDialog: vi.fn()
+    showOpenDialog: vi.fn(),
+    showSaveDialog: vi.fn()
   },
   ipcMain: {
     handle: vi.fn()
@@ -35,9 +37,11 @@ vi.mock("electron", () => ({
 
 vi.mock("node:fs/promises", () => ({
   default: {
-    readFile: fsPromisesMocks.readFile
+    readFile: fsPromisesMocks.readFile,
+    writeFile: fsPromisesMocks.writeFile
   },
-  readFile: fsPromisesMocks.readFile
+  readFile: fsPromisesMocks.readFile,
+  writeFile: fsPromisesMocks.writeFile
 }));
 
 const emptyState: PersistedContentLoopState = {
@@ -60,7 +64,9 @@ describe("registerContentLoopIpc", () => {
   beforeEach(() => {
     vi.mocked(ipcMain.handle).mockClear();
     vi.mocked(dialog.showOpenDialog).mockReset();
+    vi.mocked(dialog.showSaveDialog).mockReset();
     vi.mocked(readFile).mockReset();
+    vi.mocked(writeFile).mockReset();
   });
 
   it("rejects invalid topic generation column slugs before calling the repository", async () => {
@@ -257,11 +263,49 @@ describe("registerContentLoopIpc", () => {
   it("creates content loop exports through the repository", async () => {
     const repository = createRepository();
     registerContentLoopIpc(repository);
+    vi.mocked(dialog.showSaveDialog).mockResolvedValue({
+      canceled: false,
+      filePath: "/tmp/robert-station-export.md"
+    });
 
     const handler = getCreateExportHandler();
-    await handler({} as IpcMainInvokeEvent, "markdown");
+    const result = await handler({} as IpcMainInvokeEvent, "markdown");
 
     expect(repository.createContentLoopExport).toHaveBeenCalledWith("markdown");
+    expect(dialog.showSaveDialog).toHaveBeenCalledWith({
+      defaultPath: "robert-station-export.md",
+      filters: [{ name: "Markdown", extensions: ["md"] }]
+    });
+    expect(writeFile).toHaveBeenCalledWith("/tmp/robert-station-export.md", "# Export\n", "utf8");
+    expect(repository.startTaskRun).toHaveBeenCalledWith({
+      workspaceId: "workspace_robert-station",
+      kind: "export",
+      label: "Export markdown",
+      totalCount: 1
+    });
+    expect(repository.advanceTaskRun).toHaveBeenCalledWith("task_export-robert-station-export", {
+      phase: "completed",
+      completedCount: 1,
+      message: "Saved robert-station-export.md"
+    });
+    expect(result).toMatchObject({ fileName: "robert-station-export.md", filePath: "/tmp/robert-station-export.md" });
+  });
+
+  it("returns export content without writing when save is canceled", async () => {
+    const repository = createRepository();
+    registerContentLoopIpc(repository);
+    vi.mocked(dialog.showSaveDialog).mockResolvedValue({ canceled: true, filePath: "" });
+
+    const handler = getCreateExportHandler();
+    const result = await handler({} as IpcMainInvokeEvent, "markdown");
+
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(repository.advanceTaskRun).toHaveBeenCalledWith("task_export-robert-station-export", {
+      phase: "completed",
+      completedCount: 1,
+      message: "Prepared robert-station-export.md"
+    });
+    expect(result).toMatchObject({ fileName: "robert-station-export.md" });
   });
 
   it("filters source references through the repository", async () => {

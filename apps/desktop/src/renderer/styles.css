@@ -523,6 +523,14 @@ button:disabled {
   gap: 10px;
 }
 
+.source-library-filter {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) auto;
+  margin-top: 14px;
+}
+
 .source-library-list {
   display: grid;
   gap: 8px;
@@ -543,6 +551,12 @@ button:disabled {
   font-size: 0.84rem;
   margin: 4px 0 0;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .source-library-filter {
+    grid-template-columns: 1fr;
+  }
 }
 
 .inline-error {

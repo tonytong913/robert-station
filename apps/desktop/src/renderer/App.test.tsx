@@ -560,6 +560,33 @@ describe("App knowledge source library", () => {
     expect(await screen.findByText("最近导出：robert-station-export.md")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.createContentLoopExport).toHaveBeenCalledWith("markdown");
   });
+
+  it("filters source references from the knowledge screen", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "知识库" }));
+
+    fireEvent.change(screen.getByLabelText("标题"), {
+      target: { value: "AI 资料库文章" }
+    });
+    fireEvent.change(screen.getByLabelText("链接"), {
+      target: { value: "https://example.com/ai-source" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加资料" }));
+    expect(await screen.findByRole("article", { name: "AI 资料库文章" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("搜索资料"), {
+      target: { value: "资料库" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "筛选资料" }));
+
+    await waitFor(() => {
+      expect(window.robertStation.contentLoop.filterSourceReferences).toHaveBeenCalledWith({ query: "资料库" });
+    });
+    expect(screen.getByRole("article", { name: "AI 资料库文章" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "如何搭建个人 AI 工作站处理日常内容 的调研笔记" })).not.toBeInTheDocument();
+  });
 });
 
 describe("App knowledge screen", () => {
