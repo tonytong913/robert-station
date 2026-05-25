@@ -1,4 +1,4 @@
-import type { ContentColumnSlug, KnowledgeItem, SourceReference } from "@robert-station/core"
+import type { ContentColumnSlug, KnowledgeItem, Platform, SourceReference } from "@robert-station/core"
 import type { FormEvent, ReactElement } from "react"
 import { useState } from "react"
 import { type TranslationKey, useTranslation } from "../../i18n"
@@ -25,8 +25,14 @@ export function KnowledgeScreen(): ReactElement {
   const [sourceUrl, setSourceUrl] = useState("")
   const [sourceNote, setSourceNote] = useState("")
   const [sourceColumn, setSourceColumn] = useState<ContentColumnSlug>("ai")
+  const [sourcePlatform, setSourcePlatform] = useState<Platform>("xiaohongshu")
+  const [sourceAuthor, setSourceAuthor] = useState("")
+  const [sourceTags, setSourceTags] = useState("")
+  const [sourceExcerpt, setSourceExcerpt] = useState("")
   const [sourceSearch, setSourceSearch] = useState("")
   const [filterColumn, setFilterColumn] = useState<ContentColumnSlug | "all">("all")
+  const [filterPlatform, setFilterPlatform] = useState<Platform | "all">("all")
+  const [filterTag, setFilterTag] = useState("")
   const t = useTranslation()
   const workspaceId = contentLoop?.topics[0]?.workspaceId ?? "workspace_robert-station"
 
@@ -42,10 +48,17 @@ export function KnowledgeScreen(): ReactElement {
       columnSlug: sourceColumn,
       title: sourceTitle,
       ...(sourceUrl ? { url: sourceUrl } : {}),
+      platform: sourcePlatform,
+      ...(sourceAuthor ? { author: sourceAuthor } : {}),
+      ...(sourceExcerpt ? { excerpt: sourceExcerpt } : {}),
+      tags: sourceTags.split(",").map((tag) => tag.trim()).filter(Boolean),
       note: sourceNote
     })
     setSourceTitle("")
     setSourceUrl("")
+    setSourceAuthor("")
+    setSourceTags("")
+    setSourceExcerpt("")
     setSourceNote("")
   }
 
@@ -74,6 +87,23 @@ export function KnowledgeScreen(): ReactElement {
               <option value="parenting">Parenting</option>
               <option value="fitness">Fitness</option>
             </select>
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.sourcePlatform")}>
+            <select value={sourcePlatform} onChange={(event) => setSourcePlatform(event.target.value as Platform)}>
+              <option value="xiaohongshu">xiaohongshu</option>
+              <option value="douyin">douyin</option>
+              <option value="wechat_channels">wechat_channels</option>
+              <option value="bilibili">bilibili</option>
+            </select>
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.sourceAuthor")}>
+            <input value={sourceAuthor} onChange={(event) => setSourceAuthor(event.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.sourceTags")}>
+            <input value={sourceTags} onChange={(event) => setSourceTags(event.target.value)} />
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.sourceExcerpt")}>
+            <textarea value={sourceExcerpt} onChange={(event) => setSourceExcerpt(event.target.value)} />
           </FieldGroup>
           <FieldGroup label={t("knowledge.sourceNote")}>
             <textarea value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} />
@@ -108,11 +138,25 @@ export function KnowledgeScreen(): ReactElement {
               <option value="fitness">Fitness</option>
             </select>
           </FieldGroup>
+          <FieldGroup label={t("knowledge.filterPlatform")}>
+            <select value={filterPlatform} onChange={(event) => setFilterPlatform(event.target.value as Platform | "all")}>
+              <option value="all">All</option>
+              <option value="xiaohongshu">xiaohongshu</option>
+              <option value="douyin">douyin</option>
+              <option value="wechat_channels">wechat_channels</option>
+              <option value="bilibili">bilibili</option>
+            </select>
+          </FieldGroup>
+          <FieldGroup label={t("knowledge.filterTag")}>
+            <input value={filterTag} onChange={(event) => setFilterTag(event.target.value)} />
+          </FieldGroup>
           <Button
             disabled={isAddingSourceReference}
             onClick={() =>
               void filterSourceReferences({
                 ...(filterColumn !== "all" ? { columnSlug: filterColumn } : {}),
+                ...(filterPlatform !== "all" ? { platform: filterPlatform } : {}),
+                ...(filterTag ? { tag: filterTag } : {}),
                 ...(sourceSearch ? { query: sourceSearch } : {})
               })
             }
@@ -147,9 +191,15 @@ function SourceReferenceRow({ source }: { source: SourceReference }): ReactEleme
       <div>
         <strong>{source.title}</strong>
         {source.url ? <p>{source.url}</p> : null}
+        {source.author ? <p>{source.author}</p> : null}
+        {source.excerpt ? <p>{source.excerpt}</p> : null}
       </div>
       <div className="workspace-header__meta">
         {source.columnSlug ? <StatusBadge>{source.columnSlug}</StatusBadge> : null}
+        {source.platform ? <StatusBadge>{source.platform}</StatusBadge> : null}
+        {(source.tags ?? []).map((tag) => (
+          <StatusBadge key={tag}>{tag}</StatusBadge>
+        ))}
         <StatusBadge>{source.usageStatus ?? "unused"}</StatusBadge>
       </div>
     </article>

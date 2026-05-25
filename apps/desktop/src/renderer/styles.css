@@ -527,7 +527,7 @@ button:disabled {
   align-items: end;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(120px, 180px) minmax(120px, 180px) minmax(120px, 180px) auto;
   margin-top: 14px;
 }
 

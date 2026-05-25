@@ -587,6 +587,54 @@ describe("App knowledge source library", () => {
     expect(screen.getByRole("article", { name: "AI 资料库文章" })).toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "如何搭建个人 AI 工作站处理日常内容 的调研笔记" })).not.toBeInTheDocument();
   });
+
+  it("adds rich source metadata and filters by platform and tag", async () => {
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "总览" });
+    fireEvent.click(screen.getByRole("button", { name: "知识库" }));
+
+    fireEvent.change(screen.getByLabelText("标题"), {
+      target: { value: "微信长文导出案例" }
+    });
+    fireEvent.change(screen.getByLabelText("链接"), {
+      target: { value: "https://example.com/wechat-case" }
+    });
+    fireEvent.change(screen.getByLabelText("平台"), {
+      target: { value: "wechat_channels" }
+    });
+    fireEvent.change(screen.getByLabelText("作者"), {
+      target: { value: "wechat-article" }
+    });
+    fireEvent.change(screen.getByLabelText("标签"), {
+      target: { value: "导出,资料库" }
+    });
+    fireEvent.change(screen.getByLabelText("摘要"), {
+      target: { value: "多格式导出和资源缓存值得参考。" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加资料" }));
+
+    const source = await screen.findByRole("article", { name: "微信长文导出案例" });
+    expect(source).toHaveTextContent("wechat_channels");
+    expect(source).toHaveTextContent("wechat-article");
+    expect(source).toHaveTextContent("导出");
+
+    fireEvent.change(screen.getByLabelText("筛选平台"), {
+      target: { value: "wechat_channels" }
+    });
+    fireEvent.change(screen.getByLabelText("筛选标签"), {
+      target: { value: "资料库" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "筛选资料" }));
+
+    await waitFor(() => {
+      expect(window.robertStation.contentLoop.filterSourceReferences).toHaveBeenCalledWith({
+        platform: "wechat_channels",
+        tag: "资料库"
+      });
+    });
+    expect(screen.getByRole("article", { name: "微信长文导出案例" })).toBeInTheDocument();
+  });
 });
 
 describe("App knowledge screen", () => {
