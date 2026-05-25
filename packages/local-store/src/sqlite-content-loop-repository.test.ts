@@ -227,6 +227,11 @@ describe("SqliteContentLoopRepository", () => {
     });
     expect(afterGenerate.topics.some((topic) => topic.title === "SQLite runtime topic")).toBe(true);
     expect(afterGenerate.sourceReferences.some((source) => source.note.includes("SQLite runtime source note"))).toBe(true);
+    expect(afterGenerate.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Agent runtime generated topics."
+    });
     expect(afterReload).toEqual(afterGenerate);
   });
 
@@ -243,6 +248,11 @@ describe("SqliteContentLoopRepository", () => {
 
     expect(runtime.generateTopics).toHaveBeenCalledOnce();
     expect(state.topics.some((topic) => topic.id === "topic_ai_mock-workflow-automations")).toBe(true);
+    expect(state.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Fell back to mock topic generator."
+    });
   });
 
   it("persists generated draft packages across repository instances", async () => {
@@ -299,6 +309,11 @@ describe("SqliteContentLoopRepository", () => {
     expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime brief");
     expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime body");
     expect(afterGenerate.drafts[0]?.body).toContain("SQLite runtime verification");
+    expect(afterGenerate.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Agent runtime generated draft."
+    });
     expect(afterReload).toEqual(afterGenerate);
   });
 

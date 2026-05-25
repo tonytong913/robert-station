@@ -132,17 +132,28 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
     const workspaceId = this.state.topics[0]?.workspaceId ?? "workspace_robert-station";
     const now = new Date();
     let generated: ContentLoopSeed;
+    let diagnosticMessage: string;
 
     try {
       const runtimeOutput = await this.options.agentRuntime?.generateTopics({ columnSlug, workspaceId, now });
       generated = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
         ? createTopicsFromAgentOutput({ columnSlug, workspaceId, now, output: runtimeOutput })
         : generateMockTopics({ columnSlug, workspaceId, now });
+      diagnosticMessage = runtimeOutput && isGenerateTopicsOutput(runtimeOutput)
+        ? "Agent runtime generated topics."
+        : "Fell back to mock topic generator.";
     } catch {
       generated = generateMockTopics({ columnSlug, workspaceId, now });
+      diagnosticMessage = "Fell back to mock topic generator.";
     }
     const existingTopicIds = new Set(this.state.topics.map((topic) => topic.id));
     const existingSourceIds = new Set(this.state.sourceReferences.map((source) => source.id));
+    const diagnosticTask = createCompletedGenerationTask({
+      workspaceId,
+      label: `Generate ${columnSlug} topics`,
+      message: diagnosticMessage,
+      now
+    });
 
     this.state = {
       ...this.state,
@@ -150,7 +161,8 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       sourceReferences: [
         ...this.state.sourceReferences,
         ...generated.sourceReferences.filter((source) => !existingSourceIds.has(source.id))
-      ]
+      ],
+      taskRuns: [diagnosticTask, ...this.state.taskRuns.filter((taskRun) => taskRun.id !== diagnosticTask.id)]
     };
 
     return cloneState(this.state);
@@ -183,19 +195,31 @@ export class InMemoryContentLoopRepository implements ContentLoopRepository {
       now
     };
     let draft: DraftVersion;
+    let diagnosticMessage: string;
 
     try {
       const runtimeOutput = await this.options.agentRuntime?.generateDraft(draftInput);
       draft = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
         ? createDraftFromAgentOutput(draftInput, runtimeOutput)
         : generateMockDraftPackage(draftInput);
+      diagnosticMessage = runtimeOutput && isAgentDraftPackage(runtimeOutput.package)
+        ? "Agent runtime generated draft."
+        : "Fell back to mock draft generator.";
     } catch {
       draft = generateMockDraftPackage(draftInput);
+      diagnosticMessage = "Fell back to mock draft generator.";
     }
+    const diagnosticTask = createCompletedGenerationTask({
+      workspaceId: project.workspaceId,
+      label: `Generate draft for ${project.title}`,
+      message: diagnosticMessage,
+      now
+    });
 
     this.state = {
       ...this.state,
       drafts: [draft, ...this.state.drafts],
+      taskRuns: [diagnosticTask, ...this.state.taskRuns.filter((taskRun) => taskRun.id !== diagnosticTask.id)],
       selectedProjectId: project.id
     };
 
@@ -639,6 +663,28 @@ export function createDraftFromAgentOutput(input: GenerateDraftInput, output: Ge
     createdAt: timestamp,
     updatedAt: timestamp
   };
+}
+
+export function createCompletedGenerationTask(input: {
+  workspaceId: string;
+  label: string;
+  message: string;
+  now: Date;
+}): TaskRun {
+  const taskRun = createTaskRun({
+    workspaceId: input.workspaceId,
+    kind: "generation",
+    label: input.label,
+    totalCount: 1,
+    now: input.now
+  });
+
+  return advanceTaskRun(taskRun, {
+    phase: "completed",
+    completedCount: 1,
+    message: input.message,
+    now: input.now
+  });
 }
 
 function comparePublishRecords(left: PublishRecord, right: PublishRecord): number {

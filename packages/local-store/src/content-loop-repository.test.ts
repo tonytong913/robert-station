@@ -80,6 +80,11 @@ describe("InMemoryContentLoopRepository", () => {
     });
     expect(state.topics.some((topic) => topic.title === "Runtime topic")).toBe(true);
     expect(state.sourceReferences.some((source) => source.note.includes("Runtime source note"))).toBe(true);
+    expect(state.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Agent runtime generated topics."
+    });
   });
 
   it("falls back to mock in-memory topics when runtime topic generation fails", async () => {
@@ -95,6 +100,11 @@ describe("InMemoryContentLoopRepository", () => {
 
     expect(runtime.generateTopics).toHaveBeenCalledOnce();
     expect(state.topics.some((topic) => topic.id === "topic_ai_mock-workflow-automations")).toBe(true);
+    expect(state.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Fell back to mock topic generator."
+    });
   });
 
   it("adds and filters source library references in memory", async () => {
@@ -234,6 +244,11 @@ describe("InMemoryContentLoopRepository", () => {
     expect(state.drafts[0]?.body).toContain("Runtime brief");
     expect(state.drafts[0]?.body).toContain("Runtime body");
     expect(state.drafts[0]?.body).toContain("Runtime verification");
+    expect(state.taskRuns[0]).toMatchObject({
+      kind: "generation",
+      status: "completed",
+      message: "Agent runtime generated draft."
+    });
   });
 
   it("generates a Xiaohongshu platform package in memory for the latest draft", async () => {
