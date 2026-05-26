@@ -2,13 +2,15 @@ import type {
   ContentColumnSlug,
   ContentProject,
   DraftVersion,
+  ArchiveRecord,
+  KnowledgeItem,
+  MetricSnapshot,
   Platform,
   PlatformPackage,
   PublishRecord,
   ReviewReport,
   Topic
 } from "@robert-station/core"
-import type { PersistedContentLoopState } from "@robert-station/local-store"
 
 export type PipelineStage = "candidate" | "planned" | "drafting" | "readyToPublish" | "published" | "learning"
 
@@ -23,6 +25,18 @@ export interface PipelineFilters {
   platform: PipelinePlatformFilter
   stage: PipelineStageFilter
   query: string
+}
+
+export interface PipelineContentLoopState {
+  topics: Topic[]
+  projects: ContentProject[]
+  drafts: DraftVersion[]
+  platformPackages: PlatformPackage[]
+  publishRecords: PublishRecord[]
+  metricSnapshots: MetricSnapshot[]
+  reviewReports: ReviewReport[]
+  archiveRecords: ArchiveRecord[]
+  knowledgeItems: KnowledgeItem[]
 }
 
 export type PipelineItem =
@@ -113,9 +127,17 @@ export const pipelineStages: PipelineStage[] = [
 ]
 
 export function buildPipelineColumns(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState | null,
   filters: PipelineFilters
 ): PipelineColumnViewModel[] {
+  if (!contentLoop) {
+    return visibleStages(filters.stage).map((stage) => ({
+      stage,
+      titleKey: `pipeline.stage.${stage}`,
+      items: []
+    }))
+  }
+
   const cards = [
     ...contentLoop.topics
       .filter((topic) => isPipelineTopic(topic, contentLoop.projects))
@@ -123,9 +145,7 @@ export function buildPipelineColumns(
     ...contentLoop.projects.map((project) => buildProjectCard(contentLoop, project))
   ].filter((card) => matchesFilters(contentLoop, card, filters))
 
-  const stages = filters.stage === "all" ? pipelineStages : [filters.stage]
-
-  return stages.map((stage) => ({
+  return visibleStages(filters.stage).map((stage) => ({
     stage,
     titleKey: `pipeline.stage.${stage}`,
     items: cards.filter((card) => card.stage === stage)
@@ -133,9 +153,13 @@ export function buildPipelineColumns(
 }
 
 export function resolvePipelineDetail(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState | null,
   item: PipelineItem
 ): PipelineDetailViewModel | null {
+  if (!contentLoop) {
+    return null
+  }
+
   if (item.kind === "topic") {
     const topic = contentLoop.topics.find((candidate) => candidate.id === item.topicId)
 
@@ -169,7 +193,7 @@ function buildTopicCard(topic: Topic): PipelineCardViewModel {
 }
 
 function buildProjectCard(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   project: ContentProject
 ): PipelineCardViewModel {
   const sourceTopic = findSourceTopic(contentLoop, project)
@@ -191,7 +215,7 @@ function buildProjectCard(
 }
 
 function resolveProjectStage(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   project: ContentProject
 ): Exclude<PipelineStage, "candidate"> {
   if (
@@ -220,7 +244,7 @@ function resolveProjectStage(
 }
 
 function matchesFilters(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   card: PipelineCardViewModel,
   filters: PipelineFilters
 ): boolean {
@@ -242,7 +266,7 @@ function matchesFilters(
 }
 
 function matchesPlatform(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   card: PipelineCardViewModel,
   platform: Platform
 ): boolean {
@@ -260,7 +284,7 @@ function matchesPlatform(
   return artifactPlatforms.length > 0 ? artifactPlatforms.includes(platform) : card.platforms.includes(platform)
 }
 
-function searchableText(contentLoop: PersistedContentLoopState, card: PipelineCardViewModel): string {
+function searchableText(contentLoop: PipelineContentLoopState, card: PipelineCardViewModel): string {
   if (card.item.kind === "topic") {
     const topicId = card.item.topicId
     const topic = contentLoop.topics.find((candidate) => candidate.id === topicId)
@@ -321,7 +345,7 @@ function buildTopicDetail(topic: Topic): PipelineDetailViewModel {
 }
 
 function buildProjectDetail(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   project: ContentProject
 ): PipelineDetailViewModel {
   const sourceTopic = findSourceTopic(contentLoop, project)
@@ -408,7 +432,7 @@ function buildReviewSections(reviewReports: ReviewReport[]): PipelineDetailSecti
 }
 
 function buildArchiveSections(
-  archiveRecords: PersistedContentLoopState["archiveRecords"]
+  archiveRecords: ArchiveRecord[]
 ): PipelineDetailSection[] {
   return archiveRecords.map((record) => ({
     titleKey: "pipeline.detail.archive",
@@ -474,7 +498,7 @@ function resolveProjectColumnSlug(project: ContentProject, sourceTopic: Topic | 
 }
 
 function resolveProjectPlatforms(
-  contentLoop: PersistedContentLoopState,
+  contentLoop: PipelineContentLoopState,
   project: ContentProject,
   sourceTopic: Topic | null
 ): Platform[] {
@@ -490,7 +514,7 @@ function resolveProjectPlatforms(
   return uniquePlatforms(artifactPlatforms.length > 0 ? artifactPlatforms : sourceTopic?.targetPlatforms ?? [])
 }
 
-function findSourceTopic(contentLoop: PersistedContentLoopState, project: ContentProject): Topic | null {
+function findSourceTopic(contentLoop: PipelineContentLoopState, project: ContentProject): Topic | null {
   return project.sourceTopicId
     ? contentLoop.topics.find((topic) => topic.id === project.sourceTopicId) ?? null
     : null
@@ -506,4 +530,8 @@ function latestPublishRecord(publishRecords: PublishRecord[]): PublishRecord | n
 
 function uniquePlatforms(platforms: Platform[]): Platform[] {
   return [...new Set(platforms)]
+}
+
+function visibleStages(stage: PipelineStageFilter): PipelineStage[] {
+  return stage === "all" ? pipelineStages : [stage]
 }
