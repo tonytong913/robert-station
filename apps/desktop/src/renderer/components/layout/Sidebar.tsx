@@ -1,25 +1,23 @@
-import { BarChart3, LayoutDashboard, Library, Lightbulb, PenLine, Send } from "lucide-react"
+import { BookOpen, Download, KanbanSquare, Library } from "lucide-react"
 import type { ComponentType, ReactElement } from "react"
 import type { TranslationKey } from "../../i18n"
 import { useTranslation } from "../../i18n"
-import type { TaskScreen } from "../../stores/content-loop-store"
+import type { AppScreen } from "../../stores/content-loop-store"
 import { useContentLoopStore } from "../../stores/content-loop-store"
 import { useUiStore } from "../../stores/ui-store"
 import { Button } from "../shared/Button"
 
 type NavItem = {
-  screen: TaskScreen
+  screen: AppScreen
   labelKey: TranslationKey
   Icon: ComponentType<{ size?: number; "aria-hidden"?: boolean }>
 }
 
 const navItems: NavItem[] = [
-  { screen: "dashboard", labelKey: "nav.dashboard", Icon: LayoutDashboard },
-  { screen: "topics", labelKey: "nav.topics", Icon: Lightbulb },
-  { screen: "creation", labelKey: "nav.creation", Icon: PenLine },
-  { screen: "publish", labelKey: "nav.publish", Icon: Send },
-  { screen: "review", labelKey: "nav.review", Icon: BarChart3 },
-  { screen: "knowledge", labelKey: "nav.knowledge", Icon: Library }
+  { screen: "pipeline", labelKey: "nav.pipeline", Icon: KanbanSquare },
+  { screen: "sources", labelKey: "nav.sources", Icon: Library },
+  { screen: "knowledge", labelKey: "nav.knowledge", Icon: BookOpen },
+  { screen: "exports", labelKey: "nav.exports", Icon: Download }
 ]
 
 export function Sidebar(): ReactElement {
