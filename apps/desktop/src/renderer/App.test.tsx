@@ -128,6 +128,18 @@ describe("App pipeline screen", () => {
     );
   });
 
+  it("shows archive-required feedback when extracting review knowledge before archive", async () => {
+    render(<App />);
+
+    await publishFirstTopicFromPipeline();
+    fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
+    await screen.findByText(/还没有导入指标。当前仅作为发布准备度复盘。/);
+
+    fireEvent.click(screen.getByRole("button", { name: "沉淀为知识" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("请先归档项目，再沉淀复盘知识。");
+  });
+
   it("switches back to an older promoted project without leaving the current task screen", async () => {
     render(<App />);
 
@@ -143,6 +155,8 @@ describe("App pipeline screen", () => {
 
     expect(screen.getByRole("heading", { name: "流水线" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "如何搭建个人 AI 工作站处理日常内容" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "如何搭建个人 AI 工作站处理日常内容" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "适合家庭月度决策的简易财务看板" })).not.toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_finance-family-dashboard");
   });
 

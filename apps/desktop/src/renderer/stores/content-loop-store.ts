@@ -40,6 +40,7 @@ import {
   recordPersistedManualPublish,
   savePersistedMetricImport
 } from "../content-loop-loader"
+import { resolveProjectPipelineItem } from "../pipeline/pipeline-model"
 import { formatDatetimeLocalValue, toDatetimeLocalValue, toPublishTimestamp } from "../datetime"
 
 export type AppScreen = "pipeline" | "sources" | "knowledge" | "exports"
@@ -238,10 +239,16 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
       }
     })),
   selectProject: (projectId) =>
-    set((state) =>
-      withDerived({
+    set((state) => {
+      const contentLoop = state.contentLoop ? { ...state.contentLoop, selectedProjectId: projectId } : state.contentLoop
+      const selectedProject = contentLoop?.projects.find((project) => project.id === projectId) ?? null
+
+      return withDerived({
         ...state,
-        contentLoop: state.contentLoop ? { ...state.contentLoop, selectedProjectId: projectId } : state.contentLoop,
+        contentLoop,
+        selectedPipelineItem: contentLoop && selectedProject
+          ? resolveProjectPipelineItem(contentLoop, selectedProject)
+          : null,
         selectedPublishRecordId: null,
         selectedReviewReportId: null,
         reviewKnowledgeResult: null,
@@ -250,7 +257,7 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
         reviewReportError: null,
         reviewKnowledgeError: null
       })
-    ),
+    }),
   selectPublishRecord: (publishRecordId) =>
     set((state) => {
       const nextContentLoop = selectPublishProject(state.contentLoop, publishRecordId)

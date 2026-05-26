@@ -65,6 +65,8 @@ export type PipelineItem =
       projectId: string
     }
 
+export type ProjectPipelineItem = Extract<PipelineItem, { kind: "project" }>
+
 export interface PipelineAction {
   kind: PipelineActionKind
   labelKey: string
@@ -186,6 +188,17 @@ export function resolvePipelineDetail(
   return project ? buildProjectDetail(contentLoop, project) : null
 }
 
+export function resolveProjectPipelineItem(
+  contentLoop: PipelineContentLoopState,
+  project: ContentProject
+): ProjectPipelineItem {
+  return {
+    kind: "project",
+    stage: resolveProjectStage(contentLoop, project),
+    projectId: project.id
+  }
+}
+
 function isPipelineTopic(topic: Topic, projects: ContentProject[]): boolean {
   return (topic.status === "candidate" || topic.status === "kept") &&
     !projects.some((project) => project.sourceTopicId === topic.id)
@@ -220,13 +233,9 @@ function buildProjectCard(
   project: ContentProject
 ): PipelineCardViewModel {
   const sourceTopic = findSourceTopic(contentLoop, project)
-  const stage = resolveProjectStage(contentLoop, project)
+  const item = resolveProjectPipelineItem(contentLoop, project)
+  const stage = item.stage
   const column = resolveProjectColumn(project, sourceTopic)
-  const item: PipelineItem = {
-    kind: "project",
-    stage,
-    projectId: project.id
-  }
 
   return {
     id: project.id,
@@ -401,13 +410,9 @@ function buildProjectDetail(
   const publishRecords = contentLoop.publishRecords.filter((record) => record.contentProjectId === project.id)
   const reviewReports = contentLoop.reviewReports.filter((report) => report.contentProjectId === project.id)
   const archiveRecords = contentLoop.archiveRecords.filter((record) => record.contentProjectId === project.id)
-  const stage = resolveProjectStage(contentLoop, project)
+  const item = resolveProjectPipelineItem(contentLoop, project)
+  const stage = item.stage
   const column = resolveProjectColumn(project, sourceTopic)
-  const item: PipelineItem = {
-    kind: "project",
-    stage,
-    projectId: project.id
-  }
 
   return {
     id: project.id,

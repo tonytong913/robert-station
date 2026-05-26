@@ -54,6 +54,7 @@ export function PipelineStageActions({
   const metricImportError = useContentLoopStore((state) => state.metricImportError)
   const metricSaveError = useContentLoopStore((state) => state.metricSaveError)
   const reviewKnowledgeError = useContentLoopStore((state) => state.reviewKnowledgeError)
+  const reviewKnowledgeResult = useContentLoopStore((state) => state.reviewKnowledgeResult)
   const setManualPublishDraft = useContentLoopStore((state) => state.setManualPublishDraft)
   const importMetricCsv = useContentLoopStore((state) => state.importMetricCsv)
   const saveMetricImport = useContentLoopStore((state) => state.saveMetricImport)
@@ -176,6 +177,11 @@ export function PipelineStageActions({
               {reviewKnowledgeError ? (
                 <p className="inline-error" role="alert">
                   {t(reviewKnowledgeError as TranslationKey)}
+                </p>
+              ) : null}
+              {reviewKnowledgeResult ? (
+                <p role={reviewKnowledgeResult.kind === "success" ? "status" : "alert"}>
+                  {t(reviewKnowledgeResult.textKey)}
                 </p>
               ) : null}
             </div>
