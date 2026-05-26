@@ -558,7 +558,9 @@ button:disabled {
 
 .pipeline-card:focus-visible {
   border-color: rgba(143, 72, 47, 0.58);
-  box-shadow: 0 0 0 3px rgba(255, 219, 208, 0.78);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 219, 208, 0.88),
+    var(--shadow-raised);
   outline: 0;
 }
 
