@@ -110,7 +110,12 @@ function detailLabel(
     "pipeline.detail.platform": "pipeline.filters.platform",
     "pipeline.detail.url": "publish.url",
     "pipeline.detail.publishedAt": "publish.publishedAt",
-    "pipeline.detail.summary": "review.title"
+    "pipeline.detail.summary": "review.title",
+    "publish.note": "publish.note",
+    "review.highlights": "review.highlights",
+    "review.underperforming": "review.underperforming",
+    "review.causes": "review.causes",
+    "review.nextActions": "review.nextActions"
   }
   const knownKey = knownLabels[labelKey]
 

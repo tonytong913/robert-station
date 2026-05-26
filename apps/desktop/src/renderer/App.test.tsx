@@ -84,12 +84,14 @@ describe("App pipeline screen", () => {
   });
 
   it("saves a manual publish record from the pipeline detail panel", async () => {
+    const publishedAtInput = "2026-05-21T10:30";
+
     render(<App />);
 
     await generateFirstTopicPlatformPackage();
 
     fireEvent.change(screen.getByLabelText("发布时间"), {
-      target: { value: "2026-05-21T10:30" }
+      target: { value: publishedAtInput }
     });
     fireEvent.change(screen.getByLabelText("发布链接"), {
       target: { value: "https://www.xiaohongshu.com/explore/demo" }
@@ -105,7 +107,7 @@ describe("App pipeline screen", () => {
     expect(screen.getByText("pipeline detail publish note")).toBeInTheDocument();
     expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith({
       platformPackageId: "platform-package_project-topic-ai-local-workstation-draft-project-topic-ai-local-workstation-1-xiaohongshu",
-      publishedAt: "2026-05-21T02:30:00.000Z",
+      publishedAt: new Date(publishedAtInput).toISOString(),
       url: "https://www.xiaohongshu.com/explore/demo",
       note: "pipeline detail publish note"
     });
