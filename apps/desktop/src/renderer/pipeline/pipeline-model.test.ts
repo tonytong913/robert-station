@@ -264,6 +264,12 @@ describe("pipeline model", () => {
       overrides: { reviewReports: [reviewReport()] }
     },
     {
+      name: "archived status",
+      expectedStage: "learning",
+      project: project({ status: "archived" }),
+      overrides: {}
+    },
+    {
       name: "platformPackage without publishRecord",
       expectedStage: "readyToPublish",
       overrides: { platformPackages: [platformPackage()] }
@@ -307,6 +313,33 @@ describe("pipeline model", () => {
     expect(columns.flatMap((column) => column.items.map((item) => item.title))).toEqual([
       "适合家庭月度决策的简易财务看板"
     ])
+  })
+
+  it("filters project cards by platform package and publish record platforms", () => {
+    const contentLoop = emptyContentLoop({
+      topics: [topic()],
+      projects: [project({ title: "Packaged project" })],
+      platformPackages: [platformPackage({ platform: "douyin" })],
+      publishRecords: [publishRecord({ platform: "douyin" })]
+    })
+
+    const matchingColumns = buildPipelineColumns(contentLoop, {
+      columnSlug: "all",
+      platform: "douyin",
+      stage: "all",
+      query: ""
+    })
+    const nonMatchingColumns = buildPipelineColumns(contentLoop, {
+      columnSlug: "all",
+      platform: "xiaohongshu",
+      stage: "all",
+      query: ""
+    })
+
+    expect(matchingColumns.flatMap((column) => column.items.map((item) => item.title))).toEqual([
+      "Packaged project"
+    ])
+    expect(nonMatchingColumns.flatMap((column) => column.items.map((item) => item.title))).toEqual([])
   })
 
   it("returns a detail view model with the next action for a candidate topic", async () => {
