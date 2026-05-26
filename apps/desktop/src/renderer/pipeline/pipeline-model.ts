@@ -469,6 +469,7 @@ function buildPublishSections(publishRecords: PublishRecord[]): PipelineDetailSe
     items: [
       { labelKey: "pipeline.detail.platform", value: record.platform },
       { labelKey: "pipeline.detail.url", value: record.url },
+      { labelKey: "publish.note", value: record.note },
       { labelKey: "pipeline.detail.publishedAt", value: record.publishedAt }
     ]
   }))
@@ -480,6 +481,10 @@ function buildReviewSections(reviewReports: ReviewReport[]): PipelineDetailSecti
     items: [
       { labelKey: "pipeline.detail.version", value: String(report.version) },
       { labelKey: "pipeline.detail.summary", value: report.summary },
+      { labelKey: "review.highlights", value: report.highlights.join("\n") },
+      { labelKey: "review.underperforming", value: report.underperformingSignals.join("\n") },
+      { labelKey: "review.causes", value: report.likelyCauses.join("\n") },
+      { labelKey: "review.nextActions", value: report.nextActions.join("\n") },
       { labelKey: "pipeline.detail.updatedAt", value: report.updatedAt }
     ]
   }))

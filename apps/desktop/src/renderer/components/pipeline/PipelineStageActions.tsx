@@ -1,4 +1,4 @@
-import type { PublishRecord } from "@robert-station/core"
+import type { PublishRecord, ReviewReport } from "@robert-station/core"
 import type { ReactElement } from "react"
 import { useTranslation, type TranslationKey } from "../../i18n"
 import type {
@@ -6,7 +6,9 @@ import type {
   PipelineContentLoopState,
   PipelineDetailViewModel
 } from "../../pipeline/pipeline-model"
+import { useContentLoopStore } from "../../stores/content-loop-store"
 import { Button } from "../shared/Button"
+import { FieldGroup } from "../shared/FieldGroup"
 
 type PipelineStageActionsProps = {
   detail: PipelineDetailViewModel
@@ -42,9 +44,27 @@ export function PipelineStageActions({
   archiveProject
 }: PipelineStageActionsProps): ReactElement {
   const t = useTranslation()
+  const manualPublishDraft = useContentLoopStore((state) => state.manualPublishDraft)
+  const matchedMetricImportPreviewRows = useContentLoopStore((state) => state.matchedMetricImportPreviewRows)
+  const invalidMetricImportPreviewRows = useContentLoopStore((state) => state.invalidMetricImportPreviewRows)
+  const isImportingMetrics = useContentLoopStore((state) => state.isImportingMetrics)
+  const isSavingMetricImport = useContentLoopStore((state) => state.isSavingMetricImport)
+  const isExtractingReviewKnowledge = useContentLoopStore((state) => state.isExtractingReviewKnowledge)
+  const publishRecordError = useContentLoopStore((state) => state.publishRecordError)
+  const metricImportError = useContentLoopStore((state) => state.metricImportError)
+  const metricSaveError = useContentLoopStore((state) => state.metricSaveError)
+  const reviewKnowledgeError = useContentLoopStore((state) => state.reviewKnowledgeError)
+  const setManualPublishDraft = useContentLoopStore((state) => state.setManualPublishDraft)
+  const importMetricCsv = useContentLoopStore((state) => state.importMetricCsv)
+  const saveMetricImport = useContentLoopStore((state) => state.saveMetricImport)
+  const extractReviewKnowledge = useContentLoopStore((state) => state.extractReviewKnowledge)
   const actions = [
     ...(detail.primaryAction ? [detail.primaryAction] : []),
-    ...detail.secondaryActions.filter((action) => action.kind === "archiveProject")
+    ...detail.secondaryActions.filter((action) =>
+      action.kind === "archiveProject" ||
+      action.kind === "importMetricCsv" ||
+      action.kind === "extractReviewKnowledge"
+    )
   ]
 
   return (
@@ -56,9 +76,111 @@ export function PipelineStageActions({
           isGeneratingDraftPackage,
           isGeneratingPlatformPackage,
           isSavingPublishRecord,
+          isImportingMetrics,
+          isSavingMetricImport,
           isGeneratingReviewReport,
+          isExtractingReviewKnowledge,
           isArchivingProject
         })
+
+        if (action.kind === "recordManualPublish") {
+          const platformPackageId = resolved?.kind === "recordManualPublish" ? resolved.platformPackageId : null
+
+          return (
+            <div className="creation-actions" key={`${action.kind}-${action.platformPackageId ?? "detail"}`}>
+              <FieldGroup label={t("publish.publishedAt")}>
+                <input
+                  type="datetime-local"
+                  value={manualPublishDraft.publishedAt}
+                  onChange={(event) => setManualPublishDraft({ publishedAt: event.target.value })}
+                />
+              </FieldGroup>
+              <FieldGroup label={t("publish.url")}>
+                <input
+                  type="url"
+                  value={manualPublishDraft.url}
+                  onChange={(event) => setManualPublishDraft({ url: event.target.value })}
+                />
+              </FieldGroup>
+              <FieldGroup label={t("publish.note")}>
+                <textarea
+                  value={manualPublishDraft.note}
+                  onChange={(event) => setManualPublishDraft({ note: event.target.value })}
+                />
+              </FieldGroup>
+              <Button
+                disabled={!platformPackageId || isLoading}
+                onClick={() => {
+                  if (platformPackageId) {
+                    void recordManualPublish(platformPackageId)
+                  }
+                }}
+              >
+                {isLoading ? t("publish.saving") : actionLabel(action, t)}
+              </Button>
+              {publishRecordError ? (
+                <p className="inline-error" role="alert">
+                  {t(publishRecordError as TranslationKey)}
+                </p>
+              ) : null}
+            </div>
+          )
+        }
+
+        if (action.kind === "importMetricCsv") {
+          return (
+            <div className="creation-actions" key={`${action.kind}-${action.projectId ?? "detail"}`}>
+              <Button disabled={isLoading} onClick={() => void importMetricCsv()}>
+                {isLoading ? t("metrics.importing") : actionLabel(action, t)}
+              </Button>
+              {metricImportError ? (
+                <p className="inline-error" role="alert">
+                  {t(metricImportError as TranslationKey)}
+                </p>
+              ) : null}
+              {metricSaveError ? (
+                <p className="inline-error" role="alert">
+                  {t(metricSaveError as TranslationKey)}
+                </p>
+              ) : null}
+              {matchedMetricImportPreviewRows.length > 0 ? (
+                <>
+                  <p>{t("metrics.previewMatched", { count: matchedMetricImportPreviewRows.length })}</p>
+                  <Button disabled={isSavingMetricImport} onClick={() => void saveMetricImport()}>
+                    {isSavingMetricImport ? t("metrics.saving") : t("metrics.saveImported")}
+                  </Button>
+                </>
+              ) : null}
+              {invalidMetricImportPreviewRows.length > 0 ? (
+                <p>{t("metrics.previewInvalid", { count: invalidMetricImportPreviewRows.length })}</p>
+              ) : null}
+            </div>
+          )
+        }
+
+        if (action.kind === "extractReviewKnowledge") {
+          const reviewReportId = resolved?.kind === "extractReviewKnowledge" ? resolved.reviewReportId : null
+
+          return (
+            <div className="creation-actions" key={`${action.kind}-${action.reviewReportId ?? "detail"}`}>
+              <Button
+                disabled={!reviewReportId || isLoading}
+                onClick={() => {
+                  if (reviewReportId) {
+                    void extractReviewKnowledge(reviewReportId)
+                  }
+                }}
+              >
+                {isLoading ? t("review.extracting") : actionLabel(action, t)}
+              </Button>
+              {reviewKnowledgeError ? (
+                <p className="inline-error" role="alert">
+                  {t(reviewKnowledgeError as TranslationKey)}
+                </p>
+              ) : null}
+            </div>
+          )
+        }
 
         return (
           <Button
@@ -72,6 +194,9 @@ export function PipelineStageActions({
                   generatePlatformPackage,
                   recordManualPublish,
                   generateReviewReport,
+                  importMetricCsv,
+                  saveMetricImport,
+                  extractReviewKnowledge,
                   archiveProject
                 })
               }
@@ -86,25 +211,29 @@ export function PipelineStageActions({
   )
 }
 
-type LoadingFlags = Pick<
-  PipelineStageActionsProps,
-  | "isPromotingTopic"
-  | "isGeneratingDraftPackage"
-  | "isGeneratingPlatformPackage"
-  | "isSavingPublishRecord"
-  | "isGeneratingReviewReport"
-  | "isArchivingProject"
->
+type LoadingFlags = {
+  isPromotingTopic: boolean
+  isGeneratingDraftPackage: boolean
+  isGeneratingPlatformPackage: boolean
+  isSavingPublishRecord: boolean
+  isImportingMetrics: boolean
+  isSavingMetricImport: boolean
+  isGeneratingReviewReport: boolean
+  isExtractingReviewKnowledge: boolean
+  isArchivingProject: boolean
+}
 
-type ActionHandlers = Pick<
-  PipelineStageActionsProps,
-  | "promoteTopic"
-  | "generateDraftPackage"
-  | "generatePlatformPackage"
-  | "recordManualPublish"
-  | "generateReviewReport"
-  | "archiveProject"
->
+type ActionHandlers = {
+  promoteTopic: (topicId: string) => Promise<void>
+  generateDraftPackage: (projectId: string) => Promise<void>
+  generatePlatformPackage: (projectId: string) => Promise<void>
+  recordManualPublish: (platformPackageId: string) => Promise<void>
+  generateReviewReport: (publishRecordId: string) => Promise<void>
+  importMetricCsv: () => Promise<void>
+  saveMetricImport: () => Promise<void>
+  extractReviewKnowledge: (reviewReportId: string) => Promise<void>
+  archiveProject: (projectId: string) => Promise<void>
+}
 
 type ResolvedAction =
   | { kind: "promoteTopic"; topicId: string }
@@ -112,6 +241,9 @@ type ResolvedAction =
   | { kind: "generatePlatformPackage"; projectId: string }
   | { kind: "recordManualPublish"; platformPackageId: string }
   | { kind: "generateReviewReport"; publishRecordId: string }
+  | { kind: "importMetricCsv" }
+  | { kind: "saveMetricImport" }
+  | { kind: "extractReviewKnowledge"; reviewReportId: string }
   | { kind: "archiveProject"; projectId: string }
 
 function resolveAction(
@@ -140,6 +272,20 @@ function resolveAction(
     const publishRecordId = action.publishRecordId ?? latestProjectPublishRecord(contentLoop, detail.item.projectId)?.id
 
     return publishRecordId ? { kind: action.kind, publishRecordId } : null
+  }
+
+  if (action.kind === "importMetricCsv") {
+    return { kind: action.kind }
+  }
+
+  if (action.kind === "saveMetricImport") {
+    return { kind: action.kind }
+  }
+
+  if (action.kind === "extractReviewKnowledge" && detail.item.kind === "project") {
+    const reviewReportId = action.reviewReportId ?? latestProjectReviewReport(contentLoop, detail.item.projectId)?.id
+
+    return reviewReportId ? { kind: action.kind, reviewReportId } : null
   }
 
   return null
@@ -171,6 +317,21 @@ async function runAction(action: ResolvedAction, handlers: ActionHandlers): Prom
     return
   }
 
+  if (action.kind === "importMetricCsv") {
+    await handlers.importMetricCsv()
+    return
+  }
+
+  if (action.kind === "saveMetricImport") {
+    await handlers.saveMetricImport()
+    return
+  }
+
+  if (action.kind === "extractReviewKnowledge") {
+    await handlers.extractReviewKnowledge(action.reviewReportId)
+    return
+  }
+
   await handlers.archiveProject(action.projectId)
 }
 
@@ -181,6 +342,15 @@ function latestProjectPublishRecord(
   return [...(contentLoop?.publishRecords ?? [])]
     .filter((record) => record.contentProjectId === projectId)
     .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt))[0] ?? null
+}
+
+function latestProjectReviewReport(
+  contentLoop: PipelineContentLoopState | null,
+  projectId: string
+): ReviewReport | null {
+  return [...(contentLoop?.reviewReports ?? [])]
+    .filter((report) => report.contentProjectId === projectId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
 }
 
 function actionIsLoading(action: PipelineAction, flags: LoadingFlags): boolean {
@@ -200,8 +370,20 @@ function actionIsLoading(action: PipelineAction, flags: LoadingFlags): boolean {
     return flags.isSavingPublishRecord
   }
 
+  if (action.kind === "importMetricCsv") {
+    return flags.isImportingMetrics
+  }
+
+  if (action.kind === "saveMetricImport") {
+    return flags.isSavingMetricImport
+  }
+
   if (action.kind === "generateReviewReport") {
     return flags.isGeneratingReviewReport
+  }
+
+  if (action.kind === "extractReviewKnowledge") {
+    return flags.isExtractingReviewKnowledge
   }
 
   if (action.kind === "archiveProject") {
@@ -222,6 +404,18 @@ function loadingLabelKey(kind: PipelineAction["kind"]): TranslationKey {
 
   if (kind === "generateReviewReport") {
     return "review.generating"
+  }
+
+  if (kind === "extractReviewKnowledge") {
+    return "review.extracting"
+  }
+
+  if (kind === "importMetricCsv") {
+    return "metrics.importing"
+  }
+
+  if (kind === "saveMetricImport") {
+    return "metrics.saving"
   }
 
   if (kind === "generateTopics") {

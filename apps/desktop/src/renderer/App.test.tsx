@@ -48,6 +48,9 @@ describe("App pipeline screen", () => {
 
     expect(await screen.findByRole("heading", { name: "流水线" })).toBeInTheDocument();
     expect(screen.getByText("1 个活跃项目")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "如何搭建个人 AI 工作站处理日常内容" })).toBeInTheDocument();
+    expect(screen.getByText("草稿")).toBeInTheDocument();
+    expect(screen.getByText("草稿 v")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /草稿中.*如何搭建个人 AI 工作站处理日常内容/ })).toBeInTheDocument();
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation");
   });
@@ -71,10 +74,55 @@ describe("App pipeline screen", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
 
     expect(await screen.findByRole("button", { name: /待发布.*如何搭建个人 AI 工作站处理日常内容/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "流水线" })).toBeInTheDocument();
     expect(screen.getByText("平台包")).toBeInTheDocument();
+    expect(screen.getAllByText("xiaohongshu").length).toBeGreaterThan(0);
     expect(window.robertStation.contentLoop.generatePlatformPackage).toHaveBeenCalledWith(
       "project_topic-ai-local-workstation",
       "xiaohongshu"
+    );
+  });
+
+  it("saves a manual publish record from the pipeline detail panel", async () => {
+    render(<App />);
+
+    await generateFirstTopicPlatformPackage();
+
+    fireEvent.change(screen.getByLabelText("发布时间"), {
+      target: { value: "2026-05-21T10:30" }
+    });
+    fireEvent.change(screen.getByLabelText("发布链接"), {
+      target: { value: "https://www.xiaohongshu.com/explore/demo" }
+    });
+    fireEvent.change(screen.getByLabelText("发布备注"), {
+      target: { value: "pipeline detail publish note" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
+
+    expect(await screen.findByRole("button", { name: /已发布.*如何搭建个人 AI 工作站处理日常内容/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "流水线" })).toBeInTheDocument();
+    expect(screen.getByText("https://www.xiaohongshu.com/explore/demo")).toBeInTheDocument();
+    expect(screen.getByText("pipeline detail publish note")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.recordManualPublish).toHaveBeenCalledWith({
+      platformPackageId: "platform-package_project-topic-ai-local-workstation-draft-project-topic-ai-local-workstation-1-xiaohongshu",
+      publishedAt: "2026-05-21T02:30:00.000Z",
+      url: "https://www.xiaohongshu.com/explore/demo",
+      note: "pipeline detail publish note"
+    });
+  });
+
+  it("generates a review report from the pipeline detail panel after publish", async () => {
+    render(<App />);
+
+    await publishFirstTopicFromPipeline();
+    fireEvent.click(screen.getByRole("button", { name: "生成复盘报告" }));
+
+    expect(await screen.findByText(/还没有导入指标。当前仅作为发布准备度复盘。/)).toBeInTheDocument();
+    expect(screen.getByText("复盘报告")).toBeInTheDocument();
+    expect(screen.getByText("发布元数据已记录，可以导入指标。")).toBeInTheDocument();
+    expect(screen.getByText("导入指标快照前无法评估表现。")).toBeInTheDocument();
+    expect(window.robertStation.contentLoop.generateReviewReport).toHaveBeenCalledWith(
+      "publish-record_platform-package-project-topic-ai-local-workstation-draft-project-topic-ai-local-workstation-1-xiaohongshu"
     );
   });
 
@@ -260,6 +308,30 @@ async function promoteFirstTopicToProject(): Promise<void> {
   fireEvent.click(screen.getByRole("button", { name: "转为项目" }));
 
   await screen.findByRole("button", { name: /草稿中.*如何搭建个人 AI 工作站处理日常内容/ });
+}
+
+async function generateFirstTopicPlatformPackage(): Promise<void> {
+  await promoteFirstTopicToProject();
+  fireEvent.click(screen.getByRole("button", { name: "生成小红书包" }));
+
+  await screen.findByRole("button", { name: /待发布.*如何搭建个人 AI 工作站处理日常内容/ });
+}
+
+async function publishFirstTopicFromPipeline(): Promise<void> {
+  await generateFirstTopicPlatformPackage();
+
+  fireEvent.change(screen.getByLabelText("发布时间"), {
+    target: { value: "2026-05-21T10:30" }
+  });
+  fireEvent.change(screen.getByLabelText("发布链接"), {
+    target: { value: "https://www.xiaohongshu.com/explore/demo" }
+  });
+  fireEvent.change(screen.getByLabelText("发布备注"), {
+    target: { value: "pipeline detail publish note" }
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存发布记录" }));
+
+  await screen.findByRole("button", { name: /已发布.*如何搭建个人 AI 工作站处理日常内容/ });
 }
 
 async function selectPipelineCard(title: string): Promise<void> {
