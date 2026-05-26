@@ -1,8 +1,9 @@
-import type {
+import {
+  DEFAULT_COLUMNS,
+  type ArchiveRecord,
   ContentColumnSlug,
   ContentProject,
   DraftVersion,
-  ArchiveRecord,
   KnowledgeItem,
   MetricSnapshot,
   Platform,
@@ -130,6 +131,10 @@ export const pipelineStages: PipelineStage[] = [
   "learning"
 ]
 
+const fallbackColumnSlug: ContentColumnSlug = "ai"
+const fallbackColumnLabel = "未知栏目"
+const knownColumnSlugs = new Set<ContentColumnSlug>(DEFAULT_COLUMNS.map((column) => column.slug))
+
 export function buildPipelineColumns(
   contentLoop: PipelineContentLoopState | null,
   filters: PipelineFilters
@@ -216,6 +221,7 @@ function buildProjectCard(
 ): PipelineCardViewModel {
   const sourceTopic = findSourceTopic(contentLoop, project)
   const stage = resolveProjectStage(contentLoop, project)
+  const column = resolveProjectColumn(project, sourceTopic)
   const item: PipelineItem = {
     kind: "project",
     stage,
@@ -228,8 +234,8 @@ function buildProjectCard(
     title: project.title,
     description: sourceTopic?.hook ?? project.status,
     stage,
-    columnSlug: resolveProjectColumnSlug(project, sourceTopic),
-    columnLabel: formatColumnLabel(resolveProjectColumnSlug(project, sourceTopic)),
+    columnSlug: column.slug,
+    columnLabel: column.label,
     platforms: resolveProjectPlatforms(contentLoop, project, sourceTopic),
     statusLabelKey: statusLabelKey(stage),
     primaryMetricLabelKey: "pipeline.metric.artifacts",
@@ -396,6 +402,7 @@ function buildProjectDetail(
   const reviewReports = contentLoop.reviewReports.filter((report) => report.contentProjectId === project.id)
   const archiveRecords = contentLoop.archiveRecords.filter((record) => record.contentProjectId === project.id)
   const stage = resolveProjectStage(contentLoop, project)
+  const column = resolveProjectColumn(project, sourceTopic)
   const item: PipelineItem = {
     kind: "project",
     stage,
@@ -408,7 +415,7 @@ function buildProjectDetail(
     title: project.title,
     description: sourceTopic?.hook ?? project.status,
     stage,
-    columnSlug: resolveProjectColumnSlug(project, sourceTopic),
+    columnSlug: column.slug,
     platforms: resolveProjectPlatforms(contentLoop, project, sourceTopic),
     statusLabelKey: statusLabelKey(stage),
     primaryAction: resolveProjectPrimaryAction(stage, project, platformPackages, publishRecords),
@@ -536,12 +543,28 @@ function resolveProjectPrimaryAction(
   return null
 }
 
-function resolveProjectColumnSlug(project: ContentProject, sourceTopic: Topic | null): ContentColumnSlug {
+function resolveProjectColumn(project: ContentProject, sourceTopic: Topic | null): { slug: ContentColumnSlug; label: string } {
   if (sourceTopic) {
-    return sourceTopic.columnSlug
+    return {
+      slug: sourceTopic.columnSlug,
+      label: formatColumnLabel(sourceTopic.columnSlug)
+    }
   }
 
-  return project.primaryColumnId.replace("column_", "") as ContentColumnSlug
+  const match = /^column_(.+)$/.exec(project.primaryColumnId)
+  const slug = match?.[1]
+
+  if (isKnownColumnSlug(slug)) {
+    return {
+      slug,
+      label: formatColumnLabel(slug)
+    }
+  }
+
+  return {
+    slug: fallbackColumnSlug,
+    label: fallbackColumnLabel
+  }
 }
 
 function resolveProjectPlatforms(
@@ -588,14 +611,11 @@ function statusLabelKey(stage: PipelineStage): string {
 }
 
 function formatColumnLabel(columnSlug: ContentColumnSlug): string {
-  const labels: Record<ContentColumnSlug, string> = {
-    ai: "AI",
-    finance: "财务",
-    parenting: "育儿",
-    fitness: "健身"
-  }
+  return DEFAULT_COLUMNS.find((column) => column.slug === columnSlug)?.name ?? fallbackColumnLabel
+}
 
-  return labels[columnSlug]
+function isKnownColumnSlug(slug: string | undefined): slug is ContentColumnSlug {
+  return Boolean(slug && knownColumnSlugs.has(slug as ContentColumnSlug))
 }
 
 function countProjectArtifacts(contentLoop: PipelineContentLoopState, projectId: string): number {

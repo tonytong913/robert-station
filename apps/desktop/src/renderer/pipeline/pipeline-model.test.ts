@@ -8,17 +8,12 @@ import type {
   ReviewReport,
   Topic
 } from "@robert-station/core"
-import type { PersistedContentLoopState } from "@robert-station/local-store"
-import { InMemoryContentLoopRepository } from "@robert-station/local-store"
 import { describe, expect, it } from "vitest"
 import type { PipelineAction, PipelineContentLoopState, PipelineStage } from "./pipeline-model"
 import { buildPipelineColumns, resolvePipelineDetail } from "./pipeline-model"
 
 const timestamp = "2026-05-21T09:05:00.000Z"
-
-async function loadSeed(): Promise<PersistedContentLoopState> {
-  return InMemoryContentLoopRepository.createSeeded("workspace_robert-station").loadContentLoop()
-}
+const seedTimestamp = "2026-05-19T00:00:00.000Z"
 
 function emptyContentLoop(overrides: Partial<PipelineContentLoopState> = {}): PipelineContentLoopState {
   return {
@@ -58,6 +53,19 @@ function project(overrides: Partial<ContentProject> = {}): ContentProject {
     workspaceId: "workspace_robert-station",
     primaryColumnId: "column_ai",
     sourceTopicId: "topic_demo",
+    title: "Demo project",
+    status: "drafting",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    ...overrides
+  }
+}
+
+function projectWithoutSourceTopic(overrides: Partial<ContentProject> = {}): ContentProject {
+  return {
+    id: "project_demo",
+    workspaceId: "workspace_robert-station",
+    primaryColumnId: "column_ai",
     title: "Demo project",
     status: "drafting",
     createdAt: timestamp,
@@ -179,6 +187,58 @@ function projectStage(contentLoop: PipelineContentLoopState): PipelineStage | un
   }).flatMap((column) => column.items).find((item) => item.item.kind === "project")?.stage
 }
 
+function seedContentLoop(overrides: Partial<PipelineContentLoopState> = {}): PipelineContentLoopState {
+  return emptyContentLoop({
+    topics: [
+      topic({
+        id: "topic_ai_local-workstation",
+        columnSlug: "ai",
+        title: "如何搭建个人 AI 工作站处理日常内容",
+        hook: "把分散的 AI 工具变成可复用的每日工作流。",
+        audience: "希望获得实用 AI 提效的创作者。",
+        targetPlatforms: ["xiaohongshu", "bilibili"],
+        score: { heat: 86, fit: 92, difficulty: 48, personaConsistency: 90 },
+        createdAt: seedTimestamp,
+        updatedAt: seedTimestamp
+      }),
+      topic({
+        id: "topic_finance-family-dashboard",
+        columnSlug: "finance",
+        title: "适合家庭月度决策的简易财务看板",
+        hook: "轻量复盘习惯比复杂表格更有效。",
+        audience: "希望更从容做月度财务决策的家庭。",
+        targetPlatforms: ["xiaohongshu"],
+        score: { heat: 72, fit: 84, difficulty: 42, personaConsistency: 82 },
+        createdAt: seedTimestamp,
+        updatedAt: seedTimestamp
+      }),
+      topic({
+        id: "topic_parenting-evening-routine",
+        columnSlug: "parenting",
+        title: "减少亲子摩擦的晚间流程",
+        hook: "设计好前一晚，让第二天早晨更轻松。",
+        audience: "想建立实用日常流程的家长。",
+        targetPlatforms: ["xiaohongshu", "wechat_channels"],
+        score: { heat: 78, fit: 80, difficulty: 35, personaConsistency: 78 },
+        createdAt: seedTimestamp,
+        updatedAt: seedTimestamp
+      }),
+      topic({
+        id: "topic_fitness-swim-gym-week",
+        columnSlug: "fitness",
+        title: "一周内如何兼顾游泳和力量训练",
+        hook: "在不过度计划的情况下平衡有氧、力量和恢复。",
+        audience: "正在建立可持续健身习惯的忙碌成年人。",
+        targetPlatforms: ["xiaohongshu", "douyin"],
+        score: { heat: 68, fit: 76, difficulty: 38, personaConsistency: 80 },
+        createdAt: seedTimestamp,
+        updatedAt: seedTimestamp
+      })
+    ],
+    ...overrides
+  })
+}
+
 const plannedActions = [
   { kind: "generateTopics", labelKey: "pipeline.actions.generateTopics" },
   { kind: "promoteTopic", labelKey: "topics.promote" },
@@ -194,8 +254,8 @@ const plannedActions = [
 ] satisfies PipelineAction[]
 
 describe("pipeline model", () => {
-  it("places unpromoted candidate topics in the candidate stage", async () => {
-    const contentLoop = await loadSeed()
+  it("places unpromoted candidate topics in the candidate stage", () => {
+    const contentLoop = seedContentLoop()
 
     const columns = buildPipelineColumns(contentLoop, {
       columnSlug: "all",
@@ -228,8 +288,8 @@ describe("pipeline model", () => {
     ])
   })
 
-  it("returns column and card view models with planned public fields", async () => {
-    const contentLoop = await loadSeed()
+  it("returns column and card view models with planned public fields", () => {
+    const contentLoop = seedContentLoop()
 
     const columns = buildPipelineColumns(contentLoop, {
       columnSlug: "all",
@@ -282,14 +342,36 @@ describe("pipeline model", () => {
     ])
   })
 
-  it("moves projects to the latest lifecycle stage when artifacts exist", async () => {
-    const repository = InMemoryContentLoopRepository.createSeeded("workspace_robert-station")
-    let contentLoop = await repository.promoteTopic("topic_ai_local-workstation")
-    contentLoop = await repository.generatePlatformPackage("project_topic-ai-local-workstation", "xiaohongshu")
-    contentLoop = await repository.recordManualPublish({
-      platformPackageId: contentLoop.platformPackages[0]!.id,
-      publishedAt: "2026-05-21T09:05:00.000Z",
-      url: "https://www.xiaohongshu.com/explore/demo"
+  it("moves projects to the latest lifecycle stage when artifacts exist", () => {
+    const contentLoop = seedContentLoop({
+      topics: [
+        topic({
+          id: "topic_ai_local-workstation",
+          title: "如何搭建个人 AI 工作站处理日常内容",
+          status: "promoted",
+          targetPlatforms: ["xiaohongshu", "bilibili"]
+        })
+      ],
+      projects: [
+        project({
+          id: "project_topic-ai-local-workstation",
+          sourceTopicId: "topic_ai_local-workstation",
+          title: "如何搭建个人 AI 工作站处理日常内容"
+        })
+      ],
+      drafts: [draft({ contentProjectId: "project_topic-ai-local-workstation" })],
+      platformPackages: [
+        platformPackage({
+          id: "package_topic-ai-local-workstation",
+          contentProjectId: "project_topic-ai-local-workstation"
+        })
+      ],
+      publishRecords: [
+        publishRecord({
+          contentProjectId: "project_topic-ai-local-workstation",
+          platformPackageId: "package_topic-ai-local-workstation"
+        })
+      ]
     })
 
     const columns = buildPipelineColumns(contentLoop, {
@@ -361,8 +443,8 @@ describe("pipeline model", () => {
     expect(projectStage(contentLoop)).toBe(expectedStage)
   })
 
-  it("filters pipeline cards by stage, column, platform, and text query", async () => {
-    const contentLoop = await loadSeed()
+  it("filters pipeline cards by stage, column, platform, and text query", () => {
+    const contentLoop = seedContentLoop()
 
     const columns = buildPipelineColumns(contentLoop, {
       columnSlug: "finance",
@@ -403,8 +485,8 @@ describe("pipeline model", () => {
     expect(nonMatchingColumns.flatMap((column) => column.items.map((item) => item.title))).toEqual([])
   })
 
-  it("returns a detail view model with the next action for a candidate topic", async () => {
-    const contentLoop = await loadSeed()
+  it("returns a detail view model with the next action for a candidate topic", () => {
+    const contentLoop = seedContentLoop()
 
     const detail = resolvePipelineDetail(contentLoop, {
       kind: "topic",
@@ -434,10 +516,27 @@ describe("pipeline model", () => {
     ])
   })
 
-  it("returns null detail when no pipeline item is selected", async () => {
-    const contentLoop = await loadSeed()
+  it("returns null detail when no pipeline item is selected", () => {
+    const contentLoop = seedContentLoop()
 
     expect(resolvePipelineDetail(contentLoop, null)).toBeNull()
+  })
+
+  it("uses a safe fallback label for malformed project column ids", () => {
+    const contentLoop = emptyContentLoop({
+      projects: [projectWithoutSourceTopic({ primaryColumnId: "malformed_future-column" })]
+    })
+
+    const columns = buildPipelineColumns(contentLoop, {
+      columnSlug: "all",
+      platform: "all",
+      stage: "all",
+      query: ""
+    })
+
+    expect(columns.flatMap((column) => column.items.map((item) => item.columnLabel))).toEqual([
+      "未知栏目"
+    ])
   })
 
   it("returns project detail sections for draft, package, publish, review, and archive artifacts", () => {
