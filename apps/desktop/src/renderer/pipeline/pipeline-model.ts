@@ -39,6 +39,19 @@ export interface PipelineContentLoopState {
   knowledgeItems: KnowledgeItem[]
 }
 
+export type PipelineActionKind =
+  | "generateTopics"
+  | "promoteTopic"
+  | "generateDraftPackage"
+  | "generatePlatformPackage"
+  | "recordManualPublish"
+  | "importMetricCsv"
+  | "saveMetricImport"
+  | "generateReviewReport"
+  | "extractReviewKnowledge"
+  | "archiveProject"
+  | "createContentLoopExport"
+
 export type PipelineItem =
   | {
       kind: "topic"
@@ -51,50 +64,38 @@ export type PipelineItem =
       projectId: string
     }
 
-export type PipelineAction =
-  | {
-      kind: "promoteTopic"
-      labelKey: "topics.promote"
-    }
-  | {
-      kind: "generateDraft"
-      labelKey: "pipeline.actions.generateDraft"
-      projectId?: string
-    }
-  | {
-      kind: "generatePlatformPackage"
-      labelKey: "pipeline.actions.generatePlatformPackage"
-      projectId?: string
-    }
-  | {
-      kind: "recordPublish"
-      labelKey: "pipeline.actions.recordPublish"
-      platformPackageId?: string
-    }
-  | {
-      kind: "generateReview"
-      labelKey: "pipeline.actions.generateReview"
-      publishRecordId?: string
-    }
-  | {
-      kind: "archiveProject"
-      labelKey: "pipeline.actions.archiveProject"
-      projectId?: string
-    }
+export interface PipelineAction {
+  kind: PipelineActionKind
+  labelKey: string
+  topicId?: string
+  projectId?: string
+  platformPackageId?: string
+  publishRecordId?: string
+  reviewReportId?: string
+}
 
 export interface PipelineCardViewModel {
   id: string
+  item: PipelineItem
   title: string
   description: string
   stage: PipelineStage
   columnSlug: ContentColumnSlug
+  columnLabel: string
   platforms: Platform[]
-  item: PipelineItem
+  statusLabelKey: string
+  primaryMetricLabelKey: string
+  primaryMetricValue: string
+  warningLabelKey: string | null
+  updatedAt: string
 }
 
 export interface PipelineColumnViewModel {
   stage: PipelineStage
   titleKey: string
+  labelKey: string
+  descriptionKey: string
+  emptyKey: string
   items: PipelineCardViewModel[]
 }
 
@@ -108,12 +109,15 @@ export interface PipelineDetailSection {
 
 export interface PipelineDetailViewModel {
   id: string
+  item: PipelineItem
   title: string
   description: string
   stage: PipelineStage
   columnSlug: ContentColumnSlug
   platforms: Platform[]
+  statusLabelKey: string
   primaryAction: PipelineAction | null
+  secondaryActions: PipelineAction[]
   sections: PipelineDetailSection[]
 }
 
@@ -134,6 +138,9 @@ export function buildPipelineColumns(
     return visibleStages(filters.stage).map((stage) => ({
       stage,
       titleKey: `pipeline.stage.${stage}`,
+      labelKey: `pipeline.stage.${stage}.label`,
+      descriptionKey: `pipeline.stage.${stage}.description`,
+      emptyKey: `pipeline.stage.${stage}.empty`,
       items: []
     }))
   }
@@ -148,15 +155,18 @@ export function buildPipelineColumns(
   return visibleStages(filters.stage).map((stage) => ({
     stage,
     titleKey: `pipeline.stage.${stage}`,
+    labelKey: `pipeline.stage.${stage}.label`,
+    descriptionKey: `pipeline.stage.${stage}.description`,
+    emptyKey: `pipeline.stage.${stage}.empty`,
     items: cards.filter((card) => card.stage === stage)
   }))
 }
 
 export function resolvePipelineDetail(
   contentLoop: PipelineContentLoopState | null,
-  item: PipelineItem
+  item: PipelineItem | null
 ): PipelineDetailViewModel | null {
-  if (!contentLoop) {
+  if (!contentLoop || !item) {
     return null
   }
 
@@ -177,18 +187,26 @@ function isPipelineTopic(topic: Topic, projects: ContentProject[]): boolean {
 }
 
 function buildTopicCard(topic: Topic): PipelineCardViewModel {
+  const item: PipelineItem = {
+    kind: "topic",
+    stage: "candidate",
+    topicId: topic.id
+  }
+
   return {
     id: topic.id,
+    item,
     title: topic.title,
     description: topic.hook,
     stage: "candidate",
     columnSlug: topic.columnSlug,
+    columnLabel: formatColumnLabel(topic.columnSlug),
     platforms: topic.targetPlatforms,
-    item: {
-      kind: "topic",
-      stage: "candidate",
-      topicId: topic.id
-    }
+    statusLabelKey: "pipeline.status.candidate",
+    primaryMetricLabelKey: "pipeline.metric.heat",
+    primaryMetricValue: String(topic.score.heat),
+    warningLabelKey: null,
+    updatedAt: topic.updatedAt
   }
 }
 
@@ -198,19 +216,26 @@ function buildProjectCard(
 ): PipelineCardViewModel {
   const sourceTopic = findSourceTopic(contentLoop, project)
   const stage = resolveProjectStage(contentLoop, project)
+  const item: PipelineItem = {
+    kind: "project",
+    stage,
+    projectId: project.id
+  }
 
   return {
     id: project.id,
+    item,
     title: project.title,
     description: sourceTopic?.hook ?? project.status,
     stage,
     columnSlug: resolveProjectColumnSlug(project, sourceTopic),
+    columnLabel: formatColumnLabel(resolveProjectColumnSlug(project, sourceTopic)),
     platforms: resolveProjectPlatforms(contentLoop, project, sourceTopic),
-    item: {
-      kind: "project",
-      stage,
-      projectId: project.id
-    }
+    statusLabelKey: statusLabelKey(stage),
+    primaryMetricLabelKey: "pipeline.metric.artifacts",
+    primaryMetricValue: String(countProjectArtifacts(contentLoop, project.id)),
+    warningLabelKey: null,
+    updatedAt: project.updatedAt
   }
 }
 
@@ -311,17 +336,31 @@ function searchableText(contentLoop: PipelineContentLoopState, card: PipelineCar
 }
 
 function buildTopicDetail(topic: Topic): PipelineDetailViewModel {
+  const item: PipelineItem = {
+    kind: "topic",
+    stage: "candidate",
+    topicId: topic.id
+  }
+
   return {
     id: topic.id,
+    item,
     title: topic.title,
     description: topic.hook,
     stage: "candidate",
     columnSlug: topic.columnSlug,
     platforms: topic.targetPlatforms,
+    statusLabelKey: "pipeline.status.candidate",
     primaryAction: {
       kind: "promoteTopic",
       labelKey: "topics.promote"
     },
+    secondaryActions: [
+      {
+        kind: "generateTopics",
+        labelKey: "pipeline.actions.generateTopics"
+      }
+    ],
     sections: [
       {
         titleKey: "pipeline.detail.topic",
@@ -357,15 +396,23 @@ function buildProjectDetail(
   const reviewReports = contentLoop.reviewReports.filter((report) => report.contentProjectId === project.id)
   const archiveRecords = contentLoop.archiveRecords.filter((record) => record.contentProjectId === project.id)
   const stage = resolveProjectStage(contentLoop, project)
+  const item: PipelineItem = {
+    kind: "project",
+    stage,
+    projectId: project.id
+  }
 
   return {
     id: project.id,
+    item,
     title: project.title,
     description: sourceTopic?.hook ?? project.status,
     stage,
     columnSlug: resolveProjectColumnSlug(project, sourceTopic),
     platforms: resolveProjectPlatforms(contentLoop, project, sourceTopic),
+    statusLabelKey: statusLabelKey(stage),
     primaryAction: resolveProjectPrimaryAction(stage, project, platformPackages, publishRecords),
+    secondaryActions: resolveProjectSecondaryActions(project, reviewReports),
     sections: [
       buildProjectSection(project, sourceTopic),
       ...buildDraftSections(drafts),
@@ -452,8 +499,8 @@ function resolveProjectPrimaryAction(
 ): PipelineAction | null {
   if (stage === "planned") {
     return {
-      kind: "generateDraft",
-      labelKey: "pipeline.actions.generateDraft",
+      kind: "generateDraftPackage",
+      labelKey: "pipeline.actions.generateDraftPackage",
       projectId: project.id
     }
   }
@@ -470,8 +517,8 @@ function resolveProjectPrimaryAction(
     const platformPackage = latestPlatformPackage(platformPackages)
 
     return platformPackage ? {
-      kind: "recordPublish",
-      labelKey: "pipeline.actions.recordPublish",
+      kind: "recordManualPublish",
+      labelKey: "pipeline.actions.recordManualPublish",
       platformPackageId: platformPackage.id
     } : null
   }
@@ -480,8 +527,8 @@ function resolveProjectPrimaryAction(
     const publishRecord = latestPublishRecord(publishRecords)
 
     return publishRecord ? {
-      kind: "generateReview",
-      labelKey: "pipeline.actions.generateReview",
+      kind: "generateReviewReport",
+      labelKey: "pipeline.actions.generateReviewReport",
       publishRecordId: publishRecord.id
     } : null
   }
@@ -534,4 +581,66 @@ function uniquePlatforms(platforms: Platform[]): Platform[] {
 
 function visibleStages(stage: PipelineStageFilter): PipelineStage[] {
   return stage === "all" ? pipelineStages : [stage]
+}
+
+function statusLabelKey(stage: PipelineStage): string {
+  return `pipeline.status.${stage}`
+}
+
+function formatColumnLabel(columnSlug: ContentColumnSlug): string {
+  const labels: Record<ContentColumnSlug, string> = {
+    ai: "AI",
+    finance: "财务",
+    parenting: "育儿",
+    fitness: "健身"
+  }
+
+  return labels[columnSlug]
+}
+
+function countProjectArtifacts(contentLoop: PipelineContentLoopState, projectId: string): number {
+  return contentLoop.drafts.filter((draft) => draft.contentProjectId === projectId).length +
+    contentLoop.platformPackages.filter((platformPackage) => platformPackage.contentProjectId === projectId).length +
+    contentLoop.publishRecords.filter((record) => record.contentProjectId === projectId).length +
+    contentLoop.reviewReports.filter((report) => report.contentProjectId === projectId).length +
+    contentLoop.archiveRecords.filter((record) => record.contentProjectId === projectId).length +
+    contentLoop.knowledgeItems.filter((item) => item.contentProjectId === projectId).length
+}
+
+function resolveProjectSecondaryActions(
+  project: ContentProject,
+  reviewReports: ReviewReport[]
+): PipelineAction[] {
+  const latestReview = [...reviewReports].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+  const actions: PipelineAction[] = [
+    {
+      kind: "archiveProject",
+      labelKey: "pipeline.actions.archiveProject",
+      projectId: project.id
+    },
+    {
+      kind: "createContentLoopExport",
+      labelKey: "pipeline.actions.createContentLoopExport",
+      projectId: project.id
+    },
+    {
+      kind: "importMetricCsv",
+      labelKey: "pipeline.actions.importMetricCsv",
+      projectId: project.id
+    },
+    {
+      kind: "saveMetricImport",
+      labelKey: "pipeline.actions.saveMetricImport",
+      projectId: project.id
+    }
+  ]
+
+  return latestReview ? [
+    ...actions,
+    {
+      kind: "extractReviewKnowledge",
+      labelKey: "pipeline.actions.extractReviewKnowledge",
+      reviewReportId: latestReview.id
+    }
+  ] : actions
 }

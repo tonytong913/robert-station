@@ -11,7 +11,7 @@ import type {
 import type { PersistedContentLoopState } from "@robert-station/local-store"
 import { InMemoryContentLoopRepository } from "@robert-station/local-store"
 import { describe, expect, it } from "vitest"
-import type { PipelineContentLoopState, PipelineStage } from "./pipeline-model"
+import type { PipelineAction, PipelineContentLoopState, PipelineStage } from "./pipeline-model"
 import { buildPipelineColumns, resolvePipelineDetail } from "./pipeline-model"
 
 const timestamp = "2026-05-21T09:05:00.000Z"
@@ -179,6 +179,20 @@ function projectStage(contentLoop: PipelineContentLoopState): PipelineStage | un
   }).flatMap((column) => column.items).find((item) => item.item.kind === "project")?.stage
 }
 
+const plannedActions = [
+  { kind: "generateTopics", labelKey: "pipeline.actions.generateTopics" },
+  { kind: "promoteTopic", labelKey: "topics.promote" },
+  { kind: "generateDraftPackage", labelKey: "pipeline.actions.generateDraftPackage" },
+  { kind: "generatePlatformPackage", labelKey: "pipeline.actions.generatePlatformPackage" },
+  { kind: "recordManualPublish", labelKey: "pipeline.actions.recordManualPublish" },
+  { kind: "importMetricCsv", labelKey: "pipeline.actions.importMetricCsv" },
+  { kind: "saveMetricImport", labelKey: "pipeline.actions.saveMetricImport" },
+  { kind: "generateReviewReport", labelKey: "pipeline.actions.generateReviewReport" },
+  { kind: "extractReviewKnowledge", labelKey: "pipeline.actions.extractReviewKnowledge" },
+  { kind: "archiveProject", labelKey: "pipeline.actions.archiveProject" },
+  { kind: "createContentLoopExport", labelKey: "pipeline.actions.createContentLoopExport" }
+] satisfies PipelineAction[]
+
 describe("pipeline model", () => {
   it("places unpromoted candidate topics in the candidate stage", async () => {
     const contentLoop = await loadSeed()
@@ -196,6 +210,53 @@ describe("pipeline model", () => {
       "减少亲子摩擦的晚间流程",
       "一周内如何兼顾游泳和力量训练"
     ])
+  })
+
+  it("exposes the planned pipeline action kinds", () => {
+    expect(plannedActions.map((action) => action.kind)).toEqual([
+      "generateTopics",
+      "promoteTopic",
+      "generateDraftPackage",
+      "generatePlatformPackage",
+      "recordManualPublish",
+      "importMetricCsv",
+      "saveMetricImport",
+      "generateReviewReport",
+      "extractReviewKnowledge",
+      "archiveProject",
+      "createContentLoopExport"
+    ])
+  })
+
+  it("returns column and card view models with planned public fields", async () => {
+    const contentLoop = await loadSeed()
+
+    const columns = buildPipelineColumns(contentLoop, {
+      columnSlug: "all",
+      platform: "all",
+      stage: "candidate",
+      query: ""
+    })
+    const card = columns[0]?.items[0]
+
+    expect(columns[0]).toEqual(
+      expect.objectContaining({
+        stage: "candidate",
+        labelKey: "pipeline.stage.candidate.label",
+        descriptionKey: "pipeline.stage.candidate.description",
+        emptyKey: "pipeline.stage.candidate.empty"
+      })
+    )
+    expect(card).toEqual(
+      expect.objectContaining({
+        columnLabel: "AI",
+        statusLabelKey: "pipeline.status.candidate",
+        primaryMetricLabelKey: "pipeline.metric.heat",
+        primaryMetricValue: "86",
+        warningLabelKey: null,
+        updatedAt: "2026-05-19T00:00:00.000Z"
+      })
+    )
   })
 
   it("places kept topics in candidate and excludes promoted topics", () => {
@@ -353,11 +414,16 @@ describe("pipeline model", () => {
 
     expect(detail).toEqual(
       expect.objectContaining({
+        item: { kind: "topic", stage: "candidate", topicId: "topic_ai_local-workstation" },
         title: "如何搭建个人 AI 工作站处理日常内容",
         stage: "candidate",
+        statusLabelKey: "pipeline.status.candidate",
         primaryAction: { kind: "promoteTopic", labelKey: "topics.promote" }
       })
     )
+    expect(detail?.secondaryActions).toEqual([
+      { kind: "generateTopics", labelKey: "pipeline.actions.generateTopics" }
+    ])
     expect(detail?.sections.map((section) => section.titleKey)).toContain("pipeline.detail.topic")
     expect(detail?.sections.map((section) => section.titleKey)).toContain("pipeline.detail.scores")
     expect(detail?.sections.find((section) => section.titleKey === "pipeline.detail.scores")?.items).toEqual([
@@ -366,6 +432,12 @@ describe("pipeline model", () => {
       { labelKey: "pipeline.detail.score.difficulty", value: "48" },
       { labelKey: "pipeline.detail.score.personaConsistency", value: "90" }
     ])
+  })
+
+  it("returns null detail when no pipeline item is selected", async () => {
+    const contentLoop = await loadSeed()
+
+    expect(resolvePipelineDetail(contentLoop, null)).toBeNull()
   })
 
   it("returns project detail sections for draft, package, publish, review, and archive artifacts", () => {
