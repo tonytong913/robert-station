@@ -172,6 +172,34 @@ describe("useContentLoopStore", () => {
     })
   })
 
+  it("selects project pipeline items as the active project and clears review context", async () => {
+    await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
+    const firstProjectId = useContentLoopStore.getState().selectedProject!.id
+    await useContentLoopStore.getState().promoteTopic("topic_finance-family-dashboard")
+    const secondProjectId = useContentLoopStore.getState().selectedProject!.id
+    useContentLoopStore.getState().selectProject(firstProjectId)
+    await useContentLoopStore.getState().generateReviewReport(useContentLoopStore.getState().selectedPublishRecord!.id)
+    await useContentLoopStore.getState().extractReviewKnowledge(useContentLoopStore.getState().selectedLatestReviewReport!.id)
+
+    expect(useContentLoopStore.getState().reviewKnowledgeResult).toEqual({
+      kind: "blocked",
+      textKey: "review.archiveRequired"
+    })
+
+    useContentLoopStore.getState().selectPipelineItem({
+      kind: "project",
+      stage: "drafting",
+      projectId: secondProjectId
+    })
+
+    const state = useContentLoopStore.getState()
+    expect(state.selectedProject?.id).toBe(secondProjectId)
+    expect(state.selectedPublishRecord).toBeNull()
+    expect(state.reviewKnowledgeResult).toBeNull()
+    expect(state.isGeneratingReviewReport).toBe(false)
+    expect(state.isExtractingReviewKnowledge).toBe(false)
+  })
+
   it("excludes archived projects from active project count", async () => {
     await promoteSeedTopic()
     expect(useContentLoopStore.getState().activeProjectCount).toBe(1)

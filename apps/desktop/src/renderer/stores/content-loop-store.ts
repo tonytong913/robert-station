@@ -204,7 +204,27 @@ function createInitialState() {
 export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => ({
   ...createInitialState(),
   setScreen: (screen) => set({ screen }),
-  selectPipelineItem: (item) => set({ selectedPipelineItem: item }),
+  selectPipelineItem: (item) =>
+    set((state) => {
+      if (item.kind === "topic") {
+        return { selectedPipelineItem: item }
+      }
+
+      return withDerived({
+        ...state,
+        contentLoop: state.contentLoop
+          ? { ...state.contentLoop, selectedProjectId: item.projectId }
+          : state.contentLoop,
+        selectedPipelineItem: item,
+        selectedPublishRecordId: null,
+        selectedReviewReportId: null,
+        reviewKnowledgeResult: null,
+        isGeneratingReviewReport: false,
+        isExtractingReviewKnowledge: false,
+        reviewReportError: null,
+        reviewKnowledgeError: null
+      })
+    }),
   setPipelineStageFilter: (stage) => set({ pipelineStageFilter: stage }),
   setPipelineColumnFilter: (columnSlug) => set({ pipelineColumnFilter: columnSlug }),
   setPipelinePlatformFilter: (platform) => set({ pipelinePlatformFilter: platform }),
