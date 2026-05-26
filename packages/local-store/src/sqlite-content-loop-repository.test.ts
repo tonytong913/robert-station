@@ -70,6 +70,52 @@ describe("SqliteContentLoopRepository", () => {
     );
   });
 
+  it("migrates legacy source reference metadata columns on initialization", async () => {
+    const database = new DatabaseSync(databasePath);
+    database.exec(`
+      CREATE TABLE source_references (
+        id TEXT PRIMARY KEY,
+        remote_id TEXT,
+        workspace_id TEXT NOT NULL,
+        topic_id TEXT,
+        content_project_id TEXT,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        url TEXT,
+        note TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'local',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `);
+    database.close();
+
+    const repository = SqliteContentLoopRepository.open({ databasePath });
+    const state = await repository.loadContentLoop();
+    repository.close();
+
+    expect(state.sourceReferences[0]?.tags).toEqual([]);
+
+    const migratedDatabase = new DatabaseSync(databasePath);
+    const columns = migratedDatabase
+      .prepare("PRAGMA table_info(source_references);")
+      .all() as unknown as Array<{ name: string }>;
+    migratedDatabase.close();
+
+    expect(columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        "column_slug",
+        "platform",
+        "author",
+        "published_at",
+        "extraction_status",
+        "usage_status",
+        "excerpt",
+        "tags_json"
+      ])
+    );
+  });
+
   it("persists source library metadata across repository instances", async () => {
     const firstRepository = SqliteContentLoopRepository.open({ databasePath });
     const afterAdd = await firstRepository.addSourceReference({

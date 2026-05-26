@@ -691,9 +691,40 @@ export class SqliteContentLoopRepository implements ContentLoopRepository {
       this.database.exec(statement);
     }
 
+    this.migrateSourceReferenceColumns();
+
     const row = this.database.prepare("SELECT COUNT(*) AS count FROM topics;").get() as { count: number };
     if (row.count === 0) {
       this.seed();
+    }
+  }
+
+  private migrateSourceReferenceColumns(): void {
+    const columns = this.database
+      .prepare("PRAGMA table_info(source_references);")
+      .all() as unknown as Array<{ name: string }>;
+    const columnNames = new Set(columns.map((column) => column.name));
+    const migrations = [
+      { name: "column_slug", sql: "ALTER TABLE source_references ADD COLUMN column_slug TEXT;" },
+      { name: "platform", sql: "ALTER TABLE source_references ADD COLUMN platform TEXT;" },
+      { name: "author", sql: "ALTER TABLE source_references ADD COLUMN author TEXT;" },
+      { name: "published_at", sql: "ALTER TABLE source_references ADD COLUMN published_at TEXT;" },
+      {
+        name: "extraction_status",
+        sql: "ALTER TABLE source_references ADD COLUMN extraction_status TEXT NOT NULL DEFAULT 'manual';"
+      },
+      {
+        name: "usage_status",
+        sql: "ALTER TABLE source_references ADD COLUMN usage_status TEXT NOT NULL DEFAULT 'unused';"
+      },
+      { name: "excerpt", sql: "ALTER TABLE source_references ADD COLUMN excerpt TEXT NOT NULL DEFAULT '';" },
+      { name: "tags_json", sql: "ALTER TABLE source_references ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';" }
+    ];
+
+    for (const migration of migrations) {
+      if (!columnNames.has(migration.name)) {
+        this.database.exec(migration.sql);
+      }
     }
   }
 
