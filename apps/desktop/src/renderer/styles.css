@@ -405,7 +405,7 @@ button:disabled {
   box-shadow: var(--shadow-raised);
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(132px, 180px)) minmax(180px, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   min-width: 0;
   padding: 14px;
 }
@@ -438,7 +438,9 @@ button:disabled {
 }
 
 .pipeline-filters .button {
+  min-width: 0;
   white-space: normal;
+  width: 100%;
 }
 
 .pipeline-workbench,
@@ -455,10 +457,12 @@ button:disabled {
   gap: 12px;
   grid-auto-columns: minmax(260px, 280px);
   grid-auto-flow: column;
+  max-width: 100%;
   min-width: 0;
   overflow-x: auto;
   padding-bottom: 8px;
   scroll-padding-inline: 2px;
+  width: 100%;
 }
 
 .pipeline-column {
@@ -1055,7 +1059,7 @@ button:disabled {
   }
 
   .pipeline-board {
-    grid-auto-columns: minmax(260px, 78vw);
+    grid-auto-columns: minmax(260px, 280px);
     max-width: 100%;
   }
 
@@ -1154,7 +1158,7 @@ button:disabled {
   }
 
   .pipeline-board {
-    grid-auto-columns: minmax(248px, 86vw);
+    grid-auto-columns: minmax(260px, 280px);
   }
 
   .pipeline-column {
