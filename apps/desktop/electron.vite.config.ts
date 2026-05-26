@@ -6,9 +6,14 @@ export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        exclude: ["@robert-station/local-store", "@robert-station/core"]
+        exclude: ["@robert-station/agent-runtime", "@robert-station/local-store", "@robert-station/core"]
       })
-    ]
+    ],
+    build: {
+      rollupOptions: {
+        external: ["bufferutil", "utf-8-validate"]
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

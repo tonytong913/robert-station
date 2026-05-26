@@ -3,9 +3,10 @@ import { createContentAgentRuntime } from "@robert-station/agent-runtime";
 import { SqliteContentLoopRepository } from "@robert-station/local-store";
 import path from "node:path";
 import { registerContentLoopIpc } from "./content-loop-service";
+import { getMainAssetPaths } from "./main-paths";
 
 function createMainWindow(): void {
-  const preloadPath = path.join(__dirname, "../preload/preload.js");
+  const { preloadPath, rendererHtmlPath } = getMainAssetPaths(import.meta.url);
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -26,7 +27,7 @@ function createMainWindow(): void {
   if (process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
-    void mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+    void mainWindow.loadFile(rendererHtmlPath);
   }
 }
 
