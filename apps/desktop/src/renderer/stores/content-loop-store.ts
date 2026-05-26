@@ -17,6 +17,12 @@ import type {
 import { createEntityId } from "@robert-station/core"
 import type { PersistedContentLoopState } from "@robert-station/local-store"
 import { create } from "zustand"
+import type {
+  PipelineColumnFilter,
+  PipelineItem,
+  PipelinePlatformFilter,
+  PipelineStageFilter
+} from "../pipeline/pipeline-model"
 import {
   addPersistedSourceReference,
   archivePersistedProject,
@@ -36,7 +42,7 @@ import {
 } from "../content-loop-loader"
 import { formatDatetimeLocalValue, toDatetimeLocalValue, toPublishTimestamp } from "../datetime"
 
-export type TaskScreen = "dashboard" | "topics" | "creation" | "publish" | "review" | "knowledge"
+export type AppScreen = "pipeline" | "sources" | "knowledge" | "exports"
 
 export type ReviewKnowledgeResult = {
   kind: "success" | "blocked"
@@ -91,15 +97,25 @@ type DerivedState = {
 
 type ContentLoopStoreState = AsyncState &
   DerivedState & {
-    screen: TaskScreen
+    screen: AppScreen
     contentLoop: PersistedContentLoopState | null
+    pipelineStageFilter: PipelineStageFilter
+    pipelineColumnFilter: PipelineColumnFilter
+    pipelinePlatformFilter: PipelinePlatformFilter
+    pipelineSearchQuery: string
+    selectedPipelineItem: PipelineItem | null
     topicGenerationColumn: ContentColumnSlug
     selectedPublishRecordId: string | null
     selectedReviewReportId: string | null
     manualPublishDraft: ManualPublishDraft
     reviewKnowledgeResult: ReviewKnowledgeResult | null
     lastExportFile: ContentLoopExportFile | null
-    setScreen: (screen: TaskScreen) => void
+    setScreen: (screen: AppScreen) => void
+    selectPipelineItem: (item: PipelineItem) => void
+    setPipelineStageFilter: (stage: PipelineStageFilter) => void
+    setPipelineColumnFilter: (columnSlug: PipelineColumnFilter) => void
+    setPipelinePlatformFilter: (platform: PipelinePlatformFilter) => void
+    setPipelineSearchQuery: (query: string) => void
     setTopicGenerationColumn: (columnSlug: ContentColumnSlug) => void
     setManualPublishDraft: (partialDraft: ManualPublishDraftInput) => void
     selectProject: (projectId: string) => void
@@ -167,8 +183,13 @@ const initialDerivedState: DerivedState = {
 
 function createInitialState() {
   return {
-    screen: "dashboard" as TaskScreen,
+    screen: "pipeline" as AppScreen,
     contentLoop: null,
+    pipelineStageFilter: "all" as PipelineStageFilter,
+    pipelineColumnFilter: "all" as PipelineColumnFilter,
+    pipelinePlatformFilter: "all" as PipelinePlatformFilter,
+    pipelineSearchQuery: "",
+    selectedPipelineItem: null,
     topicGenerationColumn: "ai" as ContentColumnSlug,
     selectedPublishRecordId: null,
     selectedReviewReportId: null,
@@ -183,6 +204,11 @@ function createInitialState() {
 export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => ({
   ...createInitialState(),
   setScreen: (screen) => set({ screen }),
+  selectPipelineItem: (item) => set({ selectedPipelineItem: item }),
+  setPipelineStageFilter: (stage) => set({ pipelineStageFilter: stage }),
+  setPipelineColumnFilter: (columnSlug) => set({ pipelineColumnFilter: columnSlug }),
+  setPipelinePlatformFilter: (platform) => set({ pipelinePlatformFilter: platform }),
+  setPipelineSearchQuery: (query) => set({ pipelineSearchQuery: query }),
   setTopicGenerationColumn: (columnSlug) => set({ topicGenerationColumn: columnSlug }),
   setManualPublishDraft: (partialDraft) =>
     set((state) => ({
@@ -236,7 +262,17 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
 
     try {
       const contentLoop = await promotePersistedTopic(topicId)
-      set((state) => withDerived({ ...state, contentLoop, screen: "creation", isPromotingTopic: false }))
+      set((state) =>
+        withDerived({
+          ...state,
+          contentLoop,
+          screen: "pipeline",
+          selectedPipelineItem: contentLoop.selectedProjectId
+            ? { kind: "project", stage: "drafting", projectId: contentLoop.selectedProjectId }
+            : state.selectedPipelineItem,
+          isPromotingTopic: false
+        })
+      )
     } catch {
       set({ isPromotingTopic: false, promoteTopicError: "topics.promoteFailed" })
     }
@@ -266,7 +302,15 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
 
     try {
       const contentLoop = await generatePersistedPlatformPackage(projectId, "xiaohongshu")
-      set((state) => withDerived({ ...state, contentLoop, screen: "publish", isGeneratingPlatformPackage: false }))
+      set((state) =>
+        withDerived({
+          ...state,
+          contentLoop,
+          screen: "pipeline",
+          selectedPipelineItem: { kind: "project", stage: "readyToPublish", projectId },
+          isGeneratingPlatformPackage: false
+        })
+      )
     } catch {
       set({ isGeneratingPlatformPackage: false, platformPackageError: "creation.platformFailed" })
     }
@@ -304,7 +348,10 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
         withDerived({
           ...state,
           contentLoop,
-          screen: "review",
+          screen: "pipeline",
+          selectedPipelineItem: contentLoop.selectedProjectId
+            ? { kind: "project", stage: "published", projectId: contentLoop.selectedProjectId }
+            : state.selectedPipelineItem,
           manualPublishDraft: draft,
           isSavingPublishRecord: false,
           isGeneratingReviewReport: false,
@@ -423,7 +470,7 @@ export const useContentLoopStore = create<ContentLoopStoreState>((set, get) => (
 
     try {
       const contentLoop = await createPersistedTopicFromSourceReference(sourceReferenceId)
-      set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false, screen: "topics" }))
+      set((state) => withDerived({ ...state, contentLoop, isAddingSourceReference: false, screen: "pipeline" }))
     } catch {
       set({ isAddingSourceReference: false, sourceLibraryError: "knowledge.topicCreateFailed" })
     }

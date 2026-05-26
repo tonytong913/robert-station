@@ -22,17 +22,22 @@ describe("useContentLoopStore", () => {
     expect(useContentLoopStore.getState().candidateTopicCount).toBe(4)
   })
 
-  it("promotes topics, routes to creation, and selects the promoted project", async () => {
+  it("promotes topics, stays on pipeline, and selects the promoted project", async () => {
     await useContentLoopStore.getState().load()
     await useContentLoopStore.getState().promoteTopic("topic_ai_local-workstation")
 
     const state = useContentLoopStore.getState()
     expect(window.robertStation.contentLoop.promoteTopic).toHaveBeenCalledWith("topic_ai_local-workstation")
-    expect(state.screen).toBe("creation")
+    expect(state.screen).toBe("pipeline")
     expect(state.selectedProject?.id).toBe("project_topic-ai-local-workstation")
+    expect(state.selectedPipelineItem).toEqual({
+      kind: "project",
+      stage: "drafting",
+      projectId: "project_topic-ai-local-workstation"
+    })
   })
 
-  it("generates xiaohongshu platform packages and routes to publish", async () => {
+  it("generates xiaohongshu platform packages, stays on pipeline, and selects ready project", async () => {
     await promoteSeedTopic()
     await useContentLoopStore.getState().generatePlatformPackage("project_topic-ai-local-workstation")
 
@@ -41,11 +46,16 @@ describe("useContentLoopStore", () => {
       "project_topic-ai-local-workstation",
       "xiaohongshu"
     )
-    expect(state.screen).toBe("publish")
+    expect(state.screen).toBe("pipeline")
     expect(state.selectedXiaohongshuPackage?.contentProjectId).toBe("project_topic-ai-local-workstation")
+    expect(state.selectedPipelineItem).toEqual({
+      kind: "project",
+      stage: "readyToPublish",
+      projectId: "project_topic-ai-local-workstation"
+    })
   })
 
-  it("records manual publishes with a full input object and routes to review", async () => {
+  it("records manual publishes with a full input object and stays on pipeline", async () => {
     await promoteSeedTopic()
     await useContentLoopStore.getState().generatePlatformPackage("project_topic-ai-local-workstation")
     const platformPackageId = useContentLoopStore.getState().selectedXiaohongshuPackage?.id
@@ -62,8 +72,14 @@ describe("useContentLoopStore", () => {
       url: "https://www.xiaohongshu.com/explore/demo",
       note: "published manually"
     })
-    expect(useContentLoopStore.getState().screen).toBe("review")
-    expect(useContentLoopStore.getState().selectedPublishRecord?.url).toBe("https://www.xiaohongshu.com/explore/demo")
+    const state = useContentLoopStore.getState()
+    expect(state.screen).toBe("pipeline")
+    expect(state.selectedPublishRecord?.url).toBe("https://www.xiaohongshu.com/explore/demo")
+    expect(state.selectedPipelineItem).toEqual({
+      kind: "project",
+      stage: "published",
+      projectId: "project_topic-ai-local-workstation"
+    })
   })
 
   it("ignores stale successful review generation after selected publish record changes", async () => {
@@ -251,13 +267,22 @@ describe("useContentLoopStore", () => {
 
   it("resets to initial store state", async () => {
     await promoteAndPublish("topic_ai_local-workstation", "https://www.xiaohongshu.com/explore/demo")
+    useContentLoopStore.getState().setPipelineStageFilter("drafting")
+    useContentLoopStore.getState().setPipelineColumnFilter("ai")
+    useContentLoopStore.getState().setPipelinePlatformFilter("xiaohongshu")
+    useContentLoopStore.getState().setPipelineSearchQuery("workstation")
 
     useContentLoopStore.getState().reset()
 
     const state = useContentLoopStore.getState()
-    expect(state.screen).toBe("dashboard")
+    expect(state.screen).toBe("pipeline")
     expect(state.contentLoop).toBeNull()
     expect(state.selectedProject).toBeNull()
+    expect(state.pipelineStageFilter).toBe("all")
+    expect(state.pipelineColumnFilter).toBe("all")
+    expect(state.pipelinePlatformFilter).toBe("all")
+    expect(state.pipelineSearchQuery).toBe("")
+    expect(state.selectedPipelineItem).toBeNull()
     expect(state.reviewKnowledgeResult).toBeNull()
     expect(state.candidateTopicCount).toBe(0)
   })
