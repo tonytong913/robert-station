@@ -156,6 +156,7 @@ export const en: Record<keyof typeof zh, string> = {
   "knowledge.sourceTags": "Tags",
   "knowledge.sourceExcerpt": "Excerpt",
   "knowledge.sourceSearch": "Search sources",
+  "knowledge.filterColumn": "Filter column",
   "knowledge.filterPlatform": "Filter platform",
   "knowledge.filterTag": "Filter tag",
   "knowledge.filterSources": "Filter sources",

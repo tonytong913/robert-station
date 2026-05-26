@@ -154,6 +154,7 @@ export const zh = {
   "knowledge.sourceTags": "标签",
   "knowledge.sourceExcerpt": "摘要",
   "knowledge.sourceSearch": "搜索资料",
+  "knowledge.filterColumn": "筛选栏目",
   "knowledge.filterPlatform": "筛选平台",
   "knowledge.filterTag": "筛选标签",
   "knowledge.filterSources": "筛选资料",

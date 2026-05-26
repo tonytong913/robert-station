@@ -114,7 +114,7 @@ export function SourceLibraryScreen(): ReactElement {
           <FieldGroup label={t("knowledge.sourceSearch")}>
             <input value={sourceSearch} onChange={(event) => setSourceSearch(event.target.value)} />
           </FieldGroup>
-          <FieldGroup label={t("knowledge.sourceColumn")}>
+          <FieldGroup label={t("knowledge.filterColumn")}>
             <select value={filterColumn} onChange={(event) => setFilterColumn(event.target.value as ContentColumnSlug | "all")}>
               <option value="all">All</option>
               <option value="ai">AI</option>
